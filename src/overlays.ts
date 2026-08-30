@@ -1,20 +1,16 @@
+// Director's Cut: pipes, plaza portal, and the opening cutscene live in
+// src/directors-cut/. Production portals are the 500px ROYGBIV ring.
 import { resetCombat } from './combat';
-import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from './constants';
-import { startCutscene } from './cutscene';
-import {
-  resetEnemies,
-  spawnFinalBoss,
-  takeSlainFinalBoss,
-  unlockNextTier,
-} from './enemies';
-import { resetExplosions, spawnExplosion } from './fx';
-import { formatScrap, pauseIconContains } from './hud';
+import { resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
+import { resetExplosions, spawnHudShower, updateHudShower } from './fx';
+import { colorSquareCenter, formatScrap, pauseIconContains } from './hud';
 import { mouse, wasPressed } from './input';
-import { bakeTiles, snapshotTiles } from './map';
+import { bakeTiles } from './map';
+import { playPowerup } from './music';
 import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { consumeLevelUp, resetPickups, scrap, spendScrap } from './pickups';
-import { destroyPipe, generatePipes, spawnPlazaPortal, takeSlainPortal } from './pipes';
 import { player, resetPlayer, tryRevive } from './player';
+import { allPortalsGone, resetPortals, takeSlainPortal } from './portals';
 import { loadSave, saveGame } from './save';
 import { rebakeAllSprites } from './sprites';
 import {
@@ -33,26 +29,41 @@ import {
   shopPrice,
   shopRanks,
 } from './stats';
-import { closeUi, drawUi, isUiOpen, openCards, openMenu, updateUi } from './ui';
+import {
+  closeUi,
+  drawUi,
+  hideMenuButtons,
+  isUiOpen,
+  openCards,
+  openMenu,
+  rebakeRainbowTitle,
+  setTitleStory,
+  updateUi,
+} from './ui';
 
 export const SCENE_TITLE = 0;
 export const SCENE_RUN = 1;
-export const SCENE_CUTSCENE = 2;
 
 export let scene = SCENE_TITLE;
 
-export const WAVE_SPEED = 0.38;
+/** Elapsed run time (ms). Pauses with overlays. */
+export let runTime = 0;
+
+const TITLE_LETTERS = 7;
+const TITLE_DRAIN_MS = 500;
+const TITLE_STORY =
+  'CORPORATE IS STEALING THE COLORS OF THE CRYSTAL DIMENSION! IT IS UP TO YOU TO STOP THEM!';
 
 let pauseOpen = false;
 let hand: DraftCard[] = [];
-let seq: {
-  color: number;
-} | null = null;
-let finaleStarted = false;
+let titleDraining = false;
+let titleGrey = 0;
+let titleDrainT = 0;
 
+/** Director's Cut cutscene still reads these. Unused this pass. */
+export const WAVE_SPEED = 0.38;
 export const colorWave = { active: false, x: 0, y: 0, r: 0 };
 
-/** Later overlays (pipe-unlock, death, win) push here so they never overlap. */
 const overlayQueue: (() => void)[] = [];
 
 export function enqueueOverlay(open: () => void): void {
@@ -60,15 +71,12 @@ export function enqueueOverlay(open: () => void): void {
 }
 
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen();
-}
-
-export function isSequenceActive(): boolean {
-  return seq !== null;
+  return scene !== SCENE_RUN || isUiOpen() || titleDraining;
 }
 
 function openTitle(): void {
   pauseOpen = false;
+  titleDraining = false;
   scene = SCENE_TITLE;
   for (let i = 0; i < 7; i++) {
     unlockedColors[i] = true;
@@ -80,7 +88,7 @@ function openTitle(): void {
     ['START', 'UPGRADES'],
     (index) => {
       if (index === 0) {
-        startRun();
+        startTitleDrain();
       } else {
         openShop(true);
       }
@@ -90,14 +98,27 @@ function openTitle(): void {
   );
 }
 
-function startRun(): void {
+function startTitleDrain(): void {
+  hideMenuButtons();
+  setTitleStory(TITLE_STORY);
+  titleDraining = true;
+  titleGrey = 0;
+  titleDrainT = 0;
+}
+
+function lockNextTitleColor(): void {
+  unlockedColors[titleGrey] = false;
+  titleGrey++;
+  bakeTiles();
+  rebakeAllSprites();
+  rebakeRainbowTitle();
+}
+
+function beginRun(): void {
   closeUi();
   overlayQueue.length = 0;
   resetRun();
-  scene = SCENE_CUTSCENE;
-  startCutscene(() => {
-    scene = SCENE_RUN;
-  });
+  scene = SCENE_RUN;
 }
 
 function quitToTitle(): void {
@@ -129,7 +150,7 @@ function openShop(fromTitle: boolean): void {
         if (fromTitle) {
           openTitle();
         } else {
-          startRun();
+          beginRun();
         }
         return;
       }
@@ -166,6 +187,7 @@ function openLevelUp(): void {
   if (hand.length === 0) {
     return;
   }
+  playPowerup();
   openCards('LEVEL UP', hand, (index) => {
     const card = hand[index];
     applyPick(card);
@@ -178,49 +200,35 @@ function openLevelUp(): void {
 }
 
 function openUnlock(color: number): void {
+  playPowerup();
   const hex = '#' + RAINBOW_COLORS[color].toString(16).padStart(6, '0');
   openCards(
     COLOR_NAMES[color],
     [{ title: POWER_TITLE[color], body: POWER_UNLOCK_BODY[color] }],
-    () => closeUi(),
+    () => {
+      closeUi();
+    },
     hex
   );
 }
 
-function beginWave(color: number, x: number, y: number): void {
-  snapshotTiles();
-  unlockedColors[color] = true;
-  bakeTiles();
+function resolveSlainPortals(viewWidth: number): void {
+  const slain = takeSlainPortal();
+  if (!slain) {
+    return;
+  }
+  unlockedColors[slain.color] = true;
   rebakeAllSprites();
-  startWave(x, y);
-}
-
-function startWave(x: number, y: number): void {
-  colorWave.active = true;
-  colorWave.x = x;
-  colorWave.y = y;
-  colorWave.r = 0;
-}
-
-/** Advance the recolor/drain clip. Returns true on the frame it finishes. */
-export function tickColorWave(dt: number): boolean {
-  if (!colorWave.active) {
-    return false;
+  bakeTiles();
+  unlockNextTier();
+  spawnPortalElite(slain.x, slain.y);
+  const sq = colorSquareCenter(slain.color, viewWidth);
+  spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[slain.color]);
+  const color = slain.color;
+  enqueueOverlay(() => openUnlock(color));
+  if (allPortalsGone()) {
+    enqueueOverlay(() => openEnd('YOU WIN'));
   }
-  colorWave.r += WAVE_SPEED * dt;
-  const worldW = MAP_WIDTH * TILE_SIZE;
-  const worldH = MAP_HEIGHT * TILE_SIZE;
-  const maxR = Math.max(
-    Math.hypot(colorWave.x, colorWave.y),
-    Math.hypot(worldW - colorWave.x, colorWave.y),
-    Math.hypot(colorWave.x, worldH - colorWave.y),
-    Math.hypot(worldW - colorWave.x, worldH - colorWave.y)
-  );
-  if (colorWave.r >= maxR) {
-    colorWave.active = false;
-    return true;
-  }
-  return false;
 }
 
 function pumpOverlays(): void {
@@ -234,37 +242,14 @@ function pumpOverlays(): void {
   }
   if (consumeLevelUp()) {
     openLevelUp();
-    return;
-  }
-  if (!seq && !finaleStarted && allColorsUnlocked()) {
-    beginFinale();
   }
 }
 
-function allColorsUnlocked(): boolean {
-  for (let i = 0; i < 7; i++) {
-    if (!unlockedColors[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/** Plaza portal + Business Boss. Safe to call once per run. */
-export function beginFinale(): void {
-  if (finaleStarted || scene !== SCENE_RUN) {
-    return;
-  }
-  finaleStarted = true;
-  const home = spawnPlazaPortal();
-  spawnFinalBoss(home.x, home.y);
-}
-
-function wantsPause(): boolean {
+function wantsPause(viewHeight: number): boolean {
   return (
     wasPressed('Escape') ||
     wasPressed('KeyP') ||
-    (mouse.clicked && pauseIconContains(mouse.x, mouse.y))
+    (mouse.clicked && pauseIconContains(mouse.x, mouse.y, viewHeight))
   );
 }
 
@@ -274,16 +259,14 @@ export function initOverlays(): void {
 }
 
 export function resetRun(): void {
-  seq = null;
-  finaleStarted = false;
-  colorWave.active = false;
+  runTime = 0;
   resetRunStats();
   resetPlayer();
-  generatePipes();
   resetEnemies();
   resetPickups();
   resetExplosions();
   resetCombat();
+  resetPortals();
   for (let i = 0; i < 7; i++) {
     unlockedColors[i] = false;
   }
@@ -291,32 +274,28 @@ export function resetRun(): void {
   bakeTiles();
 }
 
-/** Consume a slain edge portal and start the color-restore sequence. */
-export function startPendingDeathSequence(): void {
-  const death = takeSlainPortal();
-  if (!death) {
-    return;
+export function updateOverlays(viewWidth: number, viewHeight: number, dt: number): void {
+  updateHudShower(dt);
+  if (scene === SCENE_RUN) {
+    resolveSlainPortals(viewWidth);
   }
-  unlockNextTier();
-  spawnExplosion(death.x, death.y, RAINBOW_COLORS[death.color], 22);
-  destroyPipe(death.color);
-  seq = { color: death.color };
-  beginWave(death.color, death.x, death.y);
-}
+  if (titleDraining) {
+    titleDrainT += dt;
+    while (titleDrainT >= TITLE_DRAIN_MS && titleGrey < TITLE_LETTERS) {
+      titleDrainT -= TITLE_DRAIN_MS;
+      lockNextTitleColor();
+    }
+    if (titleGrey >= TITLE_LETTERS && titleDrainT >= TITLE_DRAIN_MS) {
+      titleDraining = false;
+      beginRun();
+    }
+  }
 
-export function updateSequence(dt: number): void {
-  if (!seq) {
-    return;
+  if (scene === SCENE_RUN && !isWorldFrozen()) {
+    runTime += dt;
   }
-  if (tickColorWave(dt)) {
-    const color = seq.color;
-    seq = null;
-    openUnlock(color);
-  }
-}
 
-export function updateOverlays(viewWidth: number, viewHeight: number): void {
-  if (scene === SCENE_RUN && wantsPause()) {
+  if (scene === SCENE_RUN && wantsPause(viewHeight)) {
     if (pauseOpen) {
       closePause();
       mouse.clicked = false;
@@ -328,10 +307,7 @@ export function updateOverlays(viewWidth: number, viewHeight: number): void {
   if (isUiOpen()) {
     updateUi(viewWidth, viewHeight);
   }
-  if (takeSlainFinalBoss()) {
-    enqueueOverlay(() => openEnd('YOU WIN'));
-  }
-  if (scene === SCENE_RUN && !isUiOpen() && !seq && player.hp <= 0 && overlayQueue.length === 0) {
+  if (scene === SCENE_RUN && !isUiOpen() && player.hp <= 0 && overlayQueue.length === 0) {
     if (!tryRevive()) {
       openEnd('YOU DIED');
     }
