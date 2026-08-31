@@ -57,12 +57,12 @@ let titleDrainT = 0;
 
 const overlayQueue: (() => void)[] = [];
 
-export function enqueueOverlay(open: () => void): void {
+function enqueueOverlay(open: () => void): void {
   overlayQueue.push(open);
 }
 
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen() || titleDraining;
+  return scene !== SCENE_RUN || isUiOpen();
 }
 
 function openTitle(): void {
@@ -199,16 +199,15 @@ function openUnlock(color: number): void {
   );
 }
 
-function resolveSlainPortals(viewWidth: number): void {
+function resolveSlainPortals(): void {
   const slain = takeSlainPortal();
   if (!slain) {
     return;
   }
-  setUnlockedBits(unlockedBits | (1 << slain.color));
   startWave(slain.x, slain.y, slain.color);
   unlockNextTier();
   spawnPortalElite(slain.x, slain.y);
-  const sq = colorSquareCenter(slain.color, viewWidth);
+  const sq = colorSquareCenter(slain.color);
   spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[slain.color]);
   const color = slain.color;
   enqueueOverlay(() => openUnlock(color));
@@ -261,7 +260,7 @@ export function resetRun(): void {
 export function updateOverlays(viewWidth: number, viewHeight: number, dt: number): void {
   updateHudShower(dt);
   if (scene === SCENE_RUN) {
-    resolveSlainPortals(viewWidth);
+    resolveSlainPortals();
   }
   if (titleDraining) {
     titleDrainT += dt;

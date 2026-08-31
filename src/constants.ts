@@ -12,10 +12,6 @@ export const PLAYER_SPEED = 0.05;
 export const YAW = Math.PI / 4;
 export const PITCH = Math.PI / 6;
 
-export const NOVA_RADIUS = 66;
-export const NOVA_PERIOD = 2000;
-export const NOVA_LIFE = 500;
-
 export const EXPLOSION_LIFE = 480;
 export const EXPLOSION_COUNT = 22;
 

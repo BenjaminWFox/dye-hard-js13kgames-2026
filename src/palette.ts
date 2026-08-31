@@ -42,7 +42,7 @@ export function colorLive(index: number): boolean {
   return (unlockedBits & (1 << index)) !== 0;
 }
 
-export function greyOf(rgb: number): number {
+function greyOf(rgb: number): number {
   const r = (rgb >> 16) & 255;
   const g = (rgb >> 8) & 255;
   const b = rgb & 255;

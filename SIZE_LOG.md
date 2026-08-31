@@ -2,6 +2,16 @@
 
 Limit: **13,312 B**. Zip is the scoreboard (`npm run build` → advzip).
 
+## 2026-08-30 — V2 leftover cut (PR #2 pass)
+
+**advzip: 13,695 B (102.88% of 13 KB). Over by 383 B.**
+
+Delta vs phase 4: **−130 B**. Dropped production Key E / dummy-wave path, unused
+enemy fields + combatDebug, instant-unlock leftover, and moved player nova onto
+the existing disc program so the ground shader no longer carries a second nova.
+
+---
+
 ## 2026-08-30 — V2 phase 4 (gameplay port)
 
 **advzip: 13,825 B (103.85% of 13 KB). Over by 513 B.**

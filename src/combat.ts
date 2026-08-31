@@ -460,13 +460,3 @@ export function liveBolts(): Bolt[] {
 export function boltColor(bolt: Bolt): number {
   return bolt.kind === BOLT_FROST ? 5 : 0;
 }
-
-export function combatDebug(): {
-  horn: { x: number; y: number; w: number; h: number };
-  radius: number;
-} {
-  return {
-    horn: hornBeat < 2 ? hornHitbox() : { x: 0, y: 0, w: 0, h: 0 },
-    radius: NOVA_RADIUS,
-  };
-}

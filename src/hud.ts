@@ -69,7 +69,7 @@ export function pauseIconContains(x: number, y: number, viewHeight: number): boo
   );
 }
 
-export function colorSquareCenter(index: number, _viewWidth: number): { x: number; y: number } {
+export function colorSquareCenter(index: number): { x: number; y: number } {
   return sqCenters[index];
 }
 

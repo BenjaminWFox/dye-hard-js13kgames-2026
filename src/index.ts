@@ -10,11 +10,11 @@ import {
   updateCombat,
 } from './combat';
 import { PLAYER_HEIGHT, PLAYER_WIDTH, TARGET_VIEW_HEIGHT } from './constants';
-import { enemies, enemyShadow, initEnemyTypes, queueEnemies, spawnBurst, updateEnemies } from './enemies';
+import { enemies, enemyShadow, initEnemyTypes, queueEnemies, updateEnemies } from './enemies';
 import { drawFx, updateDamagePops } from './fx';
-import { drawBlob, drawColorDisc, drawGround, initGround } from './ground';
+import { drawBlob, drawColorDisc, drawGround, drawPlayerNova, initGround } from './ground';
 import { bakeHud, drawHud, drawPlayerHp } from './hud';
-import { clearPressedKeys, initInput, wasPressed } from './input';
+import { clearPressedKeys, initInput } from './input';
 import { initMusic } from './music';
 import {
   drawOverlays,
@@ -25,8 +25,8 @@ import {
   scene,
   updateOverlays,
 } from './overlays';
-import { RAINBOW_COLORS, startNextWave, updateWave, waveX, waveZ } from './palette';
-import { drawParticles, drawQuad, initParticles, spawnExplosion, updateParticles } from './particles';
+import { RAINBOW_COLORS, updateWave } from './palette';
+import { drawParticles, drawQuad, initParticles, updateParticles } from './particles';
 import { bakePickups, queuePickups, updatePickups } from './pickups';
 import { bobLift, player, playerFeet, shadowRadius, updatePlayer } from './player';
 import { bakePortals, drawPortalBars, drawPortalMarkers, queuePortals } from './portals';
@@ -77,22 +77,7 @@ async function main(): Promise<void> {
   initOverlays();
   if (import.meta.env.DEV) {
     debug = await import('./debug');
-    const w = window as unknown as {
-      explode: () => void;
-      wave: () => void;
-      swarm: () => void;
-    };
-    w.explode = () => {
-      const feet = playerFeet();
-      spawnExplosion(feet.x, feet.z, 0x222222);
-    };
-    w.wave = () => {
-      const color = startNextWave();
-      if (color >= 0) {
-        spawnExplosion(waveX, waveZ, RAINBOW_COLORS[color]);
-      }
-    };
-    w.swarm = () => spawnBurst(20);
+    debug.attachHooks();
   }
   window.addEventListener('resize', resize);
   resize();
@@ -109,18 +94,15 @@ function gameLoop(time: number): void {
   updateOverlays(viewWidth, viewHeight, dt);
 
   if (!isWorldFrozen()) {
-    const waved = debug ? debug.handleDebugKeys() : wasPressed('KeyE') ? startNextWave() : -1;
-    if (waved >= 0) {
-      spawnExplosion(waveX, waveZ, RAINBOW_COLORS[waved]);
-    }
+    debug?.handleDebugKeys();
     updatePlayer(dt);
     updateCombat(dt, viewWidth, viewHeight);
     updateEnemies(dt, viewWidth, viewHeight);
     updatePickups(dt);
     updateWave(dt);
     updateDamagePops(dt);
+    updateParticles(dt);
   }
-  updateParticles(dt);
 
   const feet = playerFeet();
   updateCamera(feet.x, feet.z, viewWidth, viewHeight);
@@ -137,21 +119,13 @@ function render(): void {
 
   const feet = playerFeet();
   const nova = playerNovaState();
-  drawGround(
-    gl,
-    feet.x,
-    feet.z,
-    shadowRadius(),
-    nova ? nova.x : feet.x,
-    nova ? nova.y : feet.z,
-    nova ? nova.r : 0
-  );
+  drawGround(gl, feet.x, feet.z, shadowRadius());
+  if (nova) {
+    drawPlayerNova(gl, nova.x, nova.y, nova.r);
+  }
 
   if (scene === SCENE_RUN) {
     for (const enemy of enemies) {
-      if (enemy.hp <= 0) {
-        continue;
-      }
       const blob = enemyShadow(enemy);
       drawBlob(gl, blob.x, blob.z, blob.r);
     }

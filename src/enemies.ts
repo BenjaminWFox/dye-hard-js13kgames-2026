@@ -57,12 +57,9 @@ export interface Enemy {
   boss: boolean;
   color: number;
   maxHp: number;
-  homeX: number;
-  homeY: number;
   cd: number;
   boost: number;
   chasing: boolean;
-  moving: boolean;
 }
 
 export const enemies: Enemy[] = [];
@@ -125,12 +122,9 @@ function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Ene
     boss: false,
     color: -1,
     maxHp: hp,
-    homeX: 0,
-    homeY: 0,
     cd: 0,
     boost: 0,
     chasing: false,
-    moving: false,
     ...extra,
   };
 }

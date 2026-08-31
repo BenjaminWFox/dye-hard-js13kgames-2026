@@ -21,10 +21,6 @@ varying vec2 vXZ;
 ${PALETTE_GLSL}
 uniform vec2 uShadowPos;
 uniform float uShadowRadius;
-uniform vec2 uNovaCenter;
-uniform float uNovaRadius;
-uniform vec3 uNovaStops[8];
-uniform float uNovaCount;
 
 void main() {
   vec3 color = vec3(1.0);
@@ -60,27 +56,6 @@ void main() {
     color *= 1.0 - (1.0 - smoothstep(0.2, 1.0, sd)) * 0.55;
   }
 
-  if (uNovaRadius > 0.5) {
-    float t = length(vXZ - uNovaCenter) / uNovaRadius;
-    if (t <= 1.0) {
-      vec3 nc = uNovaStops[0];
-      float n = max(uNovaCount - 1.0, 1.0);
-      for (int i = 1; i < 8; i++) {
-        float fi = float(i);
-        float active = step(fi, uNovaCount - 0.5);
-        float u = fi / n;
-        float prev = (fi - 1.0) / n;
-        float w = clamp((t - prev) / max(u - prev, 0.001), 0.0, 1.0) * active;
-        nc = mix(nc, uNovaStops[i], w);
-      }
-      float ring = smoothstep(0.72, 0.88, t) * (1.0 - smoothstep(0.94, 1.0, t));
-      float fill = (1.0 - t) * 0.35;
-      float outline = smoothstep(0.9, 0.96, t) * (1.0 - smoothstep(0.96, 1.0, t));
-      color = mix(color, nc, max(ring, fill));
-      color = mix(color, vec3(0.1), outline * 0.85);
-    }
-  }
-
   gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -103,6 +78,8 @@ precision mediump float;
 varying vec2 vLocal;
 uniform vec4 uColor;
 uniform float uMode;
+uniform vec3 uNovaStops[8];
+uniform float uNovaCount;
 void main() {
   float d = length(vLocal);
   if (d > 1.0) {
@@ -112,10 +89,20 @@ void main() {
     gl_FragColor = vec4(uColor.rgb, uColor.a * (1.0 - smoothstep(0.2, 1.0, d)));
     return;
   }
+  vec3 nc = uNovaStops[0];
+  float n = max(uNovaCount - 1.0, 1.0);
+  for (int i = 1; i < 8; i++) {
+    float fi = float(i);
+    float active = step(fi, uNovaCount - 0.5);
+    float u = fi / n;
+    float prev = (fi - 1.0) / n;
+    float w = clamp((d - prev) / max(u - prev, 0.001), 0.0, 1.0) * active;
+    nc = mix(nc, uNovaStops[i], w);
+  }
   float ring = smoothstep(0.72, 0.88, d) * (1.0 - smoothstep(0.94, 1.0, d));
   float fill = (1.0 - d) * 0.35;
   float outline = smoothstep(0.9, 0.96, d) * (1.0 - smoothstep(0.96, 1.0, d));
-  vec3 color = mix(uColor.rgb, vec3(0.1), outline * 0.85);
+  vec3 color = mix(nc, vec3(0.1), outline * 0.85);
   gl_FragColor = vec4(color, max(ring, fill) * uColor.a);
 }
 `;
@@ -172,10 +159,7 @@ export function drawGround(
   gl: WebGLRenderingContext,
   x: number,
   z: number,
-  shadowRadius: number,
-  novaX: number,
-  novaZ: number,
-  novaRadius: number
+  shadowRadius: number
 ): void {
   writePlane(gl, x, z);
   gl.useProgram(program);
@@ -183,11 +167,6 @@ export function drawGround(
   setPaletteUniforms(gl, program);
   gl.uniform2f(gl.getUniformLocation(program, 'uShadowPos'), x, z);
   gl.uniform1f(gl.getUniformLocation(program, 'uShadowRadius'), shadowRadius);
-  gl.uniform2f(gl.getUniformLocation(program, 'uNovaCenter'), novaX, novaZ);
-  gl.uniform1f(gl.getUniformLocation(program, 'uNovaRadius'), novaRadius);
-  const stopCount = fillNovaStops(novaStops);
-  gl.uniform3fv(gl.getUniformLocation(program, 'uNovaStops'), novaStops);
-  gl.uniform1f(gl.getUniformLocation(program, 'uNovaCount'), stopCount);
 
   const loc = gl.getAttribLocation(program, 'aXZ');
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -205,7 +184,8 @@ function drawDisc(
   g: number,
   b: number,
   a: number,
-  mode: number
+  mode: number,
+  stopCount = 0
 ): void {
   if (radius < 0.5) {
     return;
@@ -216,6 +196,10 @@ function drawDisc(
   gl.uniform1f(gl.getUniformLocation(discProgram, 'uRadius'), radius);
   gl.uniform4f(gl.getUniformLocation(discProgram, 'uColor'), r, g, b, a);
   gl.uniform1f(gl.getUniformLocation(discProgram, 'uMode'), mode);
+  if (stopCount > 0) {
+    gl.uniform3fv(gl.getUniformLocation(discProgram, 'uNovaStops'), novaStops);
+    gl.uniform1f(gl.getUniformLocation(discProgram, 'uNovaCount'), stopCount);
+  }
   const loc = gl.getAttribLocation(discProgram, 'aCorner');
   gl.bindBuffer(gl.ARRAY_BUFFER, discQuad);
   gl.enableVertexAttribArray(loc);
@@ -234,15 +218,17 @@ export function drawColorDisc(
   radius: number,
   rgb: number
 ): void {
-  drawDisc(
-    gl,
-    x,
-    z,
-    radius,
-    ((rgb >> 16) & 255) / 255,
-    ((rgb >> 8) & 255) / 255,
-    (rgb & 255) / 255,
-    1,
-    1
-  );
+  novaStops[0] = ((rgb >> 16) & 255) / 255;
+  novaStops[1] = ((rgb >> 8) & 255) / 255;
+  novaStops[2] = (rgb & 255) / 255;
+  drawDisc(gl, x, z, radius, 1, 1, 1, 1, 1, 1);
+}
+
+export function drawPlayerNova(
+  gl: WebGLRenderingContext,
+  x: number,
+  z: number,
+  radius: number
+): void {
+  drawDisc(gl, x, z, radius, 1, 1, 1, 1, 1, fillNovaStops(novaStops));
 }
