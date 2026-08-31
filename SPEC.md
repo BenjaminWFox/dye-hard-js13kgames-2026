@@ -219,14 +219,11 @@ Neutrals (`000000`, `747474`, `b1b1b1`, `cecece`, `ffffff`) never remap.
 Yellow / indigo near-aliases snap to the canonical hex **once on the CPU**
 when the atlas is packed, so the shader only tests the 7 rainbow colors.
 
-**Atlas pack (once at load, full color — no grey bake):**
+**Sheet upload (once at load, full color — no grey bake):**
 
-1. Load `sprites.png`, `getImageData`, snap aliases.
-2. Blit each sprite into one atlas canvas, applying V1 transforms that are
-   still pixel surgery: flip, `rot90`, pipe `recolorFrom` → `recolorTo`
-   (`keepRecolor`), **leg-cut walk frames**.
-3. Upload the atlas as an RGBA texture (`NEAREST`, clamp).
-4. Remember UV rects.
+1. Load `sprites.png`, `getImageData`, snap yellow/indigo aliases.
+2. Upload the snapped sheet (`NEAREST`, clamp). Sample UV rects from it.
+   Derived walk frames are **cut** — the bob is the move read.
 
 Do **not** rebake on color unlock. Unlock flips a bit in a `uUnlocked`
 uniform (0–7, bit 0 = red … bit 6 = violet). White kit stomp is not a
@@ -275,8 +272,8 @@ Draw **after** ground / shadows / nova. Sort back-to-front by camera-depth
 of the feet (flat plane — no GPU depth tricks required). i-frames still
 blink by skipping a draw.
 
-Walk cycle: three atlas rects (idle / left-cut / right-cut), same 150ms
-cadence as V1. Facing flips stay TBD.
+No walk-cycle frames. Movement reads from the 1px float bob + shadow
+scale. Facing flips stay TBD.
 
 **150-enemy cap:** one instanced sprite draw (or one buffer rebuild) per
 frame, not 150 `drawArrays` calls.
@@ -353,9 +350,9 @@ duplicate the tables here.
 
 Overrides:
 
-- No per-sprite grey bake. The atlas is full color.
-- Leg-cut, flip, `rot90`, and pipe stripe remap still happen on the CPU,
-  once, at atlas pack.
+- No per-sprite grey bake. The sheet is full color; the shader remaps.
+- No walk-cycle frames. Flip / `rot90` / pipe stripe remap can return when
+  those sprites are packed.
 - Ground tiles and vein stamps are **gone** — the ground shader replaces
   them.
 - Code-drawn V1 primitives that this spec moves to WebGL: nova, enemy
@@ -393,9 +390,9 @@ Measure `npm run build` at the end of every phase. Log the zip in
 
 | Phase | Work | Done |
 |-------|------|------|
-| **1 — Vertical slice** | WebGL context + resize/pixel-upscale. Ortho iso camera following a dummy player. White plane + vein shader + locked-palette greys. One billboard from the packed atlas (unicorn idle). Soft blob shadow. One expanding gradient nova. One pixel-explosion burst (key or timer). Screen-axis move. **No HUD, no swarm, no shop.** Record the zip. | |
-| **2 — Palette + wave** | Atlas pack (leg-cut, aliases). `uUnlocked` + portal-triggered wave on ground **and** sprites. Confirm a locked-red unicorn and a post-wave recolor without rebake. | |
-| **3 — HUD decision** | Port packed font + V1 HUD/overlays **or** take fallback #1 (system fonts) if phase 1–2 already ate the headroom. | |
+| **1 — Vertical slice** | WebGL context + resize/pixel-upscale. Ortho iso camera following a dummy player. White plane + vein shader + locked-palette greys. One billboard from the packed atlas (unicorn idle). Soft blob shadow. One expanding gradient nova. One pixel-explosion burst (key or timer). Screen-axis move. **No HUD, no swarm, no shop.** Record the zip. | ✅ 4,591 B |
+| **2 — Palette + wave** | Alias snap + shader wave on ground and sprites. Walk frames later cut (bob only). | ✅ 5,390 B |
+| **3 — HUD decision** | Port packed font + V1 HUD/overlays **or** take fallback #1 (system fonts) if phase 1–2 already ate the headroom. | ✅ 6,849 B — keep packed font |
 | **4 — Gameplay port** | Player, swarm, combat, portals, pickups, overlays, save, audio. Presentation goes through the new renderer; rules stay V1. | |
 | **5 — Tune + ship** | Iso framing, nova gradient, shadows, wave feel, V1 combat TBDs, golf. | |
 
