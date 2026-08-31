@@ -1,13 +1,5 @@
 import { moveForwardX, moveForwardZ, moveRightX, moveRightZ } from './camera';
-import {
-  BOB_MS,
-  PLAYER_HEIGHT,
-  PLAYER_HIT,
-  PLAYER_SPAWN_X,
-  PLAYER_SPAWN_Y,
-  PLAYER_SPEED,
-  PLAYER_WIDTH,
-} from './constants';
+import { BOB_MS, PLAYER_HEIGHT, PLAYER_HIT, PLAYER_SPEED, PLAYER_WIDTH } from './constants';
 import { moveAxis } from './input';
 import { spawnExplosion } from './particles';
 import {
@@ -24,8 +16,8 @@ import {
 
 export const player = {
   // Top-left of the 11×19 sprite, gameplay (x, y) → world (x, 0, y)
-  x: PLAYER_SPAWN_X,
-  y: PLAYER_SPAWN_Y,
+  x: 0,
+  y: 0,
   moving: false,
   bobTime: 0,
   hp: 100,
@@ -80,8 +72,8 @@ export function tryRevive(): boolean {
 }
 
 export function resetPlayer(): void {
-  player.x = PLAYER_SPAWN_X;
-  player.y = PLAYER_SPAWN_Y;
+  player.x = 0;
+  player.y = 0;
   player.moving = false;
   player.bobTime = 0;
   player.maxHp =

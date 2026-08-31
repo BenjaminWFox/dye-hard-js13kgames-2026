@@ -1,8 +1,38 @@
+import { WAVE_ORIGIN_R } from './constants';
 import { spawnBurst } from './enemies';
 import { wasPressed } from './input';
-import { RAINBOW_COLORS, startNextWave, toggleColor, waveX, waveZ } from './palette';
+import {
+  clearWave,
+  RAINBOW_COLORS,
+  setUnlockedBits,
+  startWave,
+  unlockedBits,
+  waveColor,
+  waveX,
+  waveZ,
+} from './palette';
 import { spawnExplosion } from './particles';
 import { playerFeet } from './player';
+
+function startNextWave(): number {
+  for (let i = 0; i < 7; i++) {
+    if ((unlockedBits & (1 << i)) === 0 && waveColor !== i) {
+      const ang = -Math.PI / 2 + (i * Math.PI * 2) / 7;
+      startWave(Math.cos(ang) * WAVE_ORIGIN_R, Math.sin(ang) * WAVE_ORIGIN_R, i);
+      return i;
+    }
+  }
+  return -1;
+}
+
+function toggleColor(index: number): void {
+  if (waveColor === index) {
+    setUnlockedBits(unlockedBits | (1 << index));
+    clearWave();
+    return;
+  }
+  setUnlockedBits(unlockedBits ^ (1 << index));
+}
 
 /**
  * Dev-only: E starts the next color wave from its dummy portal; 1–7 toggle a bit.

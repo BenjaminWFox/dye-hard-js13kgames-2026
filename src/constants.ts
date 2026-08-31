@@ -4,13 +4,8 @@ export const TARGET_VIEW_HEIGHT = 250;
 export const PLAYER_HIT = 11;
 export const PLAYER_WIDTH = 11;
 export const PLAYER_HEIGHT = 19;
-export const PLAYER_SPAWN_X = 0;
-export const PLAYER_SPAWN_Y = 0;
 /** Pixels per millisecond. */
 export const PLAYER_SPEED = 0.05;
-
-export const YAW = Math.PI / 4;
-export const PITCH = Math.PI / 6;
 
 export const EXPLOSION_LIFE = 480;
 export const EXPLOSION_COUNT = 22;

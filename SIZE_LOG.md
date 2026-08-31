@@ -2,6 +2,22 @@
 
 Limit: **13,312 B**. Zip is the scoreboard (`npm run build` → advzip).
 
+## 2026-08-30 — V2 golf pass (under)
+
+**advzip: 13,262 B (99.62% of 13 KB). Headroom 50 B.**
+
+Delta vs leftover cut: **−433 B** from the 13,695 log (live pre-pass zip was
+13,733). No gameplay or presentation cuts.
+
+Paid: minify GLSL identifiers + shared ground/disc vertex shader (plane follows
+via center/radius uniforms; shadow reuses that center), drop production shader
+error strings, bake the constant iso view/proj, move Key E / toggle / portalXZ
+into `debug.ts`, compact SFX pack (shared rowLen + note), share the four
+identical song pad instruments, drop spawn-at-origin constants and
+`lastSpawnRadius`. Shared VS/FS uniforms are `mediump` so the programs link.
+
+---
+
 ## 2026-08-30 — V2 leftover cut (PR #2 pass)
 
 **advzip: 13,695 B (102.88% of 13 KB). Over by 383 B.**

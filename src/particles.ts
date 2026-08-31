@@ -18,24 +18,21 @@ interface Particle {
 }
 
 const VS = `
-attribute vec2 aCorner;
-uniform vec3 uPos;
-uniform vec2 uSize;
-uniform mat4 uView;
-uniform mat4 uProj;
-void main() {
-  vec4 viewPos = uView * vec4(uPos, 1.0);
-  viewPos.xy += aCorner * uSize;
-  gl_Position = uProj * viewPos;
+attribute vec2 a;
+uniform vec3 f;
+uniform vec2 z;
+uniform mat4 V,P;
+void main(){
+  vec4 p=V*vec4(f,1.0);
+  p.xy+=a*z;
+  gl_Position=P*p;
 }
 `;
 
 const FS = `
 precision mediump float;
-uniform vec4 uColor;
-void main() {
-  gl_FragColor = uColor;
-}
+uniform vec4 C;
+void main(){gl_FragColor=C;}
 `;
 
 const particles: Particle[] = [];
@@ -90,19 +87,38 @@ export function updateParticles(dt: number): void {
   }
 }
 
+function bindParticleProgram(gl: WebGLRenderingContext): void {
+  gl.useProgram(program);
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'V'), false, view);
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'P'), false, proj);
+  bindAttrib(gl, program, quad);
+}
+
+function stamp(
+  gl: WebGLRenderingContext,
+  x: number,
+  y: number,
+  z: number,
+  w: number,
+  h: number,
+  r: number,
+  g: number,
+  b: number,
+  a: number
+): void {
+  gl.uniform3f(gl.getUniformLocation(program, 'f'), x, y, z);
+  gl.uniform2f(gl.getUniformLocation(program, 'z'), w, h);
+  gl.uniform4f(gl.getUniformLocation(program, 'C'), r, g, b, a);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
 export function drawParticles(gl: WebGLRenderingContext): void {
   if (particles.length === 0) {
     return;
   }
-  gl.useProgram(program);
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, view);
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProj'), false, proj);
-  bindAttrib(gl, program, 'aCorner', 2, quad);
+  bindParticleProgram(gl);
   for (const p of particles) {
-    gl.uniform3f(gl.getUniformLocation(program, 'uPos'), p.x, p.y, p.z);
-    gl.uniform2f(gl.getUniformLocation(program, 'uSize'), p.size, p.size);
-    gl.uniform4f(gl.getUniformLocation(program, 'uColor'), p.r, p.g, p.b, p.life / p.maxLife);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    stamp(gl, p.x, p.y, p.z, p.size, p.size, p.r, p.g, p.b, p.life / p.maxLife);
   }
 }
 
@@ -118,12 +134,6 @@ export function drawQuad(
   b: number,
   a: number
 ): void {
-  gl.useProgram(program);
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, view);
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProj'), false, proj);
-  bindAttrib(gl, program, 'aCorner', 2, quad);
-  gl.uniform3f(gl.getUniformLocation(program, 'uPos'), x, y, z);
-  gl.uniform2f(gl.getUniformLocation(program, 'uSize'), w, h);
-  gl.uniform4f(gl.getUniformLocation(program, 'uColor'), r, g, b, a);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  bindParticleProgram(gl);
+  stamp(gl, x, y, z, w, h, r, g, b, a);
 }

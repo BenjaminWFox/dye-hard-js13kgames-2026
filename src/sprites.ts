@@ -4,36 +4,30 @@ import { bindAttrib, makeProgram, makeUnitQuad, uploadTexture } from './gl';
 import { PALETTE_GLSL, setPaletteUniforms, snapAlias } from './palette';
 
 const VS = `
-attribute vec2 aCorner;
-uniform vec3 uFeet;
-uniform vec2 uSize;
-uniform vec2 uViewOff;
-uniform vec4 uUv;
-uniform mat4 uView;
-uniform mat4 uProj;
-varying vec2 vUv;
-varying vec2 vXZ;
-void main() {
-  vUv = mix(uUv.xy, uUv.zw, vec2(aCorner.x + 0.5, aCorner.y));
-  vXZ = uFeet.xz;
-  vec4 viewPos = uView * vec4(uFeet, 1.0);
-  viewPos.xy += aCorner * uSize + uViewOff;
-  gl_Position = uProj * viewPos;
+attribute vec2 a;
+uniform vec3 f;
+uniform vec2 z,o;
+uniform vec4 v;
+uniform mat4 V,P;
+varying vec2 t,x;
+void main(){
+  t=mix(v.xy,v.zw,vec2(a.x+.5,a.y));
+  x=f.xz;
+  vec4 p=V*vec4(f,1.0);
+  p.xy+=a*z+o;
+  gl_Position=P*p;
 }
 `;
 
 const FS = `
 precision mediump float;
-varying vec2 vUv;
-varying vec2 vXZ;
-uniform sampler2D uTex;
+varying vec2 t,x;
+uniform sampler2D T;
 ${PALETTE_GLSL}
-void main() {
-  vec4 t = texture2D(uTex, vUv);
-  if (t.a < 0.5) {
-    discard;
-  }
-  gl_FragColor = vec4(applyPalette(t.rgb, vXZ), t.a);
+void main(){
+  vec4 e=texture2D(T,t);
+  if(e.a<.5)discard;
+  gl_FragColor=vec4(p(e.rgb,x),e.a);
 }
 `;
 
@@ -129,13 +123,13 @@ export function bakeCell(sx: number, sy: number, sw: number, sh: number): HTMLCa
 export async function initSprites(gl: WebGLRenderingContext): Promise<void> {
   program = makeProgram(gl, VS, FS);
   quad = makeUnitQuad(gl);
-  locView = gl.getUniformLocation(program, 'uView') as WebGLUniformLocation;
-  locProj = gl.getUniformLocation(program, 'uProj') as WebGLUniformLocation;
-  locFeet = gl.getUniformLocation(program, 'uFeet') as WebGLUniformLocation;
-  locSize = gl.getUniformLocation(program, 'uSize') as WebGLUniformLocation;
-  locUv = gl.getUniformLocation(program, 'uUv') as WebGLUniformLocation;
-  locTex = gl.getUniformLocation(program, 'uTex') as WebGLUniformLocation;
-  locViewOff = gl.getUniformLocation(program, 'uViewOff') as WebGLUniformLocation;
+  locView = gl.getUniformLocation(program, 'V') as WebGLUniformLocation;
+  locProj = gl.getUniformLocation(program, 'P') as WebGLUniformLocation;
+  locFeet = gl.getUniformLocation(program, 'f') as WebGLUniformLocation;
+  locSize = gl.getUniformLocation(program, 'z') as WebGLUniformLocation;
+  locUv = gl.getUniformLocation(program, 'v') as WebGLUniformLocation;
+  locTex = gl.getUniformLocation(program, 'T') as WebGLUniformLocation;
+  locViewOff = gl.getUniformLocation(program, 'o') as WebGLUniformLocation;
 
   const image = new Image();
   image.src = 'sprites.png';
@@ -208,7 +202,7 @@ export function flushSprites(gl: WebGLRenderingContext): void {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.uniform1i(locTex, 0);
-  bindAttrib(gl, program, 'aCorner', 2, quad);
+  bindAttrib(gl, program, quad);
   for (const s of queue) {
     gl.uniform3f(locFeet, s.x, s.y, s.z);
     gl.uniform2f(locSize, s.w, s.h);

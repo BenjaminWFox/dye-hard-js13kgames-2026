@@ -1,12 +1,8 @@
-export function compileShader(
-  gl: WebGLRenderingContext,
-  type: number,
-  source: string
-): WebGLShader {
+function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type) as WebGLShader;
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+  if (import.meta.env.DEV && !gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     throw new Error(gl.getShaderInfoLog(shader) || 'shader');
   }
   return shader;
@@ -17,7 +13,7 @@ export function makeProgram(gl: WebGLRenderingContext, vs: string, fs: string): 
   gl.attachShader(program, compileShader(gl, gl.VERTEX_SHADER, vs));
   gl.attachShader(program, compileShader(gl, gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+  if (import.meta.env.DEV && !gl.getProgramParameter(program, gl.LINK_STATUS)) {
     throw new Error(gl.getProgramInfoLog(program) || 'program');
   }
   return program;
@@ -38,16 +34,12 @@ export function makeUnitQuad(gl: WebGLRenderingContext): WebGLBuffer {
 export function bindAttrib(
   gl: WebGLRenderingContext,
   program: WebGLProgram,
-  name: string,
-  size: number,
-  buffer: WebGLBuffer,
-  stride = 0,
-  offset = 0
+  buffer: WebGLBuffer
 ): void {
-  const loc = gl.getAttribLocation(program, name);
+  const loc = gl.getAttribLocation(program, 'a');
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 }
 
 export function uploadTexture(gl: WebGLRenderingContext, source: TexImageSource): WebGLTexture {

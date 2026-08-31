@@ -1,4 +1,4 @@
-import { WAVE_MAX, WAVE_ORIGIN_R, WAVE_SPEED } from './constants';
+import { WAVE_MAX, WAVE_SPEED } from './constants';
 
 export const RAINBOW_COLORS = [
   0xe40404, 0xff8200, 0xf1e300, 0x08ba00, 0x0030e2, 0x6c00ef, 0xa656ff,
@@ -22,7 +22,7 @@ export function snapAlias(rgb: number): number {
   return ALIASES.get(rgb) ?? rgb;
 }
 
-/** 7 rgb triples, 0–1, for `uniform vec3 uRainbow[7]`. */
+/** 7 rgb triples, 0–1, for `uniform vec3 R[7]`. */
 export const RAINBOW_F32 = new Float32Array(21);
 for (let i = 0; i < 7; i++) {
   const rgb = RAINBOW_COLORS[i];
@@ -66,12 +66,6 @@ export let waveRadius = 0;
 /** −1 = idle. */
 export let waveColor = -1;
 
-/** Red at 12 o'clock, ROYGBIV clockwise. Same formula as V1 portals. */
-export function portalXZ(color: number, radius = WAVE_ORIGIN_R): { x: number; z: number } {
-  const ang = -Math.PI / 2 + (color * Math.PI * 2) / 7;
-  return { x: Math.cos(ang) * radius, z: Math.sin(ang) * radius };
-}
-
 export function clearWave(): void {
   waveColor = -1;
   waveRadius = 0;
@@ -94,18 +88,6 @@ export function startWave(x: number, z: number, color: number): void {
   waveColor = color;
 }
 
-/** Start the next locked color from its dummy portal. Returns the color, or −1. */
-export function startNextWave(): number {
-  for (let i = 0; i < 7; i++) {
-    if ((unlockedBits & (1 << i)) === 0 && waveColor !== i) {
-      const origin = portalXZ(i);
-      startWave(origin.x, origin.z, i);
-      return i;
-    }
-  }
-  return -1;
-}
-
 export function updateWave(dt: number): void {
   if (waveColor < 0) {
     return;
@@ -116,63 +98,35 @@ export function updateWave(dt: number): void {
   }
 }
 
-export function toggleColor(index: number): void {
-  if (waveColor === index) {
-    finishWave();
-    return;
-  }
-  unlockedBits ^= 1 << index;
-}
-
 /**
  * Shared GLSL: locked rainbow → HSL-lightness grey; optional color wave.
  * Paste into every program that samples art or veins.
  */
 export const PALETTE_GLSL = `
-uniform vec3 uRainbow[7];
-uniform float uUnlocked;
-uniform vec2 uWaveOrigin;
-uniform float uWaveRadius;
-uniform float uWaveColor;
-
-vec3 greyOf(vec3 c) {
-  float lo = min(min(c.r, c.g), c.b);
-  float hi = max(max(c.r, c.g), c.b);
-  float g = floor((hi + lo) * 127.5) / 255.0;
-  return vec3(g);
+uniform vec3 R[7];
+uniform float U;
+uniform vec2 O;
+uniform float W,I;
+vec3 g(vec3 c){
+  float lo=min(min(c.r,c.g),c.b),hi=max(max(c.r,c.g),c.b);
+  return vec3(floor((hi+lo)*127.5)/255.0);
 }
-
-bool isUnlocked(int i, vec2 xz) {
-  float bit = floor(mod(uUnlocked / pow(2.0, float(i)), 2.0));
-  if (bit > 0.5) {
-    return true;
-  }
-  if (uWaveColor < 0.0) {
-    return false;
-  }
-  if (abs(uWaveColor - float(i)) > 0.5) {
-    return false;
-  }
-  return distance(xz, uWaveOrigin) < uWaveRadius;
+bool k(int i,vec2 xz){
+  if(floor(mod(U/pow(2.0,float(i)),2.0))>.5)return true;
+  return I>=0.0&&abs(I-float(i))<.5&&distance(xz,O)<W;
 }
-
-vec3 applyPalette(vec3 rgb, vec2 xz) {
-  for (int i = 0; i < 7; i++) {
-    if (distance(rgb, uRainbow[i]) < 0.008) {
-      if (!isUnlocked(i, xz)) {
-        return greyOf(rgb);
-      }
-      return rgb;
-    }
+vec3 p(vec3 rgb,vec2 xz){
+  for(int i=0;i<7;i++){
+    if(distance(rgb,R[i])<.008)return k(i,xz)?rgb:g(rgb);
   }
   return rgb;
 }
 `;
 
 export function setPaletteUniforms(gl: WebGLRenderingContext, program: WebGLProgram): void {
-  gl.uniform3fv(gl.getUniformLocation(program, 'uRainbow'), RAINBOW_F32);
-  gl.uniform1f(gl.getUniformLocation(program, 'uUnlocked'), unlockedBits);
-  gl.uniform2f(gl.getUniformLocation(program, 'uWaveOrigin'), waveX, waveZ);
-  gl.uniform1f(gl.getUniformLocation(program, 'uWaveRadius'), waveRadius);
-  gl.uniform1f(gl.getUniformLocation(program, 'uWaveColor'), waveColor);
+  gl.uniform3fv(gl.getUniformLocation(program, 'R'), RAINBOW_F32);
+  gl.uniform1f(gl.getUniformLocation(program, 'U'), unlockedBits);
+  gl.uniform2f(gl.getUniformLocation(program, 'O'), waveX, waveZ);
+  gl.uniform1f(gl.getUniformLocation(program, 'W'), waveRadius);
+  gl.uniform1f(gl.getUniformLocation(program, 'I'), waveColor);
 }

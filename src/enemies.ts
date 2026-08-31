@@ -79,10 +79,7 @@ export function initEnemyTypes(): void {
     const box = measureContentBox(sheetX, sheetY, CELL_W, CELL_H);
     const uv = sheetUv(sheetX, sheetY, CELL_W, CELL_H);
     enemyTypes.push({
-      u0: uv.u0,
-      v0: uv.v0,
-      u1: uv.u1,
-      v1: uv.v1,
+      ...uv,
       hitX: box.x,
       hitY: box.y,
       hitW: box.w,
@@ -95,7 +92,6 @@ export function initEnemyTypes(): void {
 }
 
 let spawnTimer = 0;
-let lastSpawnRadius = 200;
 let regulars = 0;
 let swarmElites = 0;
 
@@ -131,7 +127,6 @@ function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Ene
 
 export function updateEnemies(dt: number, viewWidth: number, viewHeight: number): void {
   const spawnRadius = Math.hypot(viewWidth, viewHeight) / 2 + SPAWN_MARGIN;
-  lastSpawnRadius = spawnRadius;
   const playerHit = getPlayerHitbox();
   const playerCenterX = playerHit.x + playerHit.w / 2;
   const playerCenterY = playerHit.y + playerHit.h / 2;
@@ -283,7 +278,7 @@ export function spawnPortalElite(x: number, y: number): void {
 export function spawnBurst(count: number): void {
   const playerHit = getPlayerHitbox();
   for (let i = 0; i < count; i++) {
-    trySpawn(playerHit.x + playerHit.w / 2, playerHit.y + playerHit.h / 2, lastSpawnRadius);
+    trySpawn(playerHit.x + playerHit.w / 2, playerHit.y + playerHit.h / 2, 200);
   }
 }
 
@@ -409,7 +404,7 @@ export function queueEnemies(): void {
       feet.z,
       CELL_W * feet.scale,
       CELL_H * feet.scale,
-      { u0: type.u0, v0: type.v0, u1: type.u1, v1: type.v1 }
+      type
     );
   }
 }

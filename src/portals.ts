@@ -1,5 +1,5 @@
 import { worldToScreen } from './camera';
-import { PLAYER_SPAWN_X, PLAYER_SPAWN_Y, WAVE_ORIGIN_R } from './constants';
+import { WAVE_ORIGIN_R } from './constants';
 import { spawnDamageNumber } from './fx';
 import { playHit } from './music';
 import { queueSprite, sheetUv } from './sprites';
@@ -33,8 +33,8 @@ export function resetPortals(): void {
   for (let i = 0; i < 7; i++) {
     const ang = -Math.PI / 2 + (i * Math.PI * 2) / 7;
     portals.push({
-      x: PLAYER_SPAWN_X + Math.cos(ang) * WAVE_ORIGIN_R - PORTAL_W / 2,
-      y: PLAYER_SPAWN_Y + Math.sin(ang) * WAVE_ORIGIN_R - PORTAL_H / 2,
+      x: Math.cos(ang) * WAVE_ORIGIN_R - PORTAL_W / 2,
+      y: Math.sin(ang) * WAVE_ORIGIN_R - PORTAL_H / 2,
       hp: PORTAL_MAX_HP,
     });
   }

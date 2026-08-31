@@ -1,15 +1,30 @@
-import { PITCH, YAW } from './constants';
-
 export const view = new Float32Array(16);
 export const proj = new Float32Array(16);
 export const viewProj = new Float32Array(16);
 
+const H = Math.SQRT1_2;
+const T = Math.sqrt(3) / 2;
+const H2 = H * 0.5;
+const TH = T * H;
+
+view[0] = H;
+view[1] = H2;
+view[2] = TH;
+view[5] = T;
+view[6] = -0.5;
+view[8] = -H;
+view[9] = H2;
+view[10] = TH;
+view[15] = 1;
+proj[10] = -0.001;
+proj[15] = 1;
+
 /** Screen-right on the XZ plane (already unit length). */
-export let moveRightX = 1;
-export let moveRightZ = 0;
+export const moveRightX = H;
+export const moveRightZ = -H;
 /** Screen-up on the XZ plane (already unit length). */
-export let moveForwardX = 0;
-export let moveForwardZ = 1;
+export const moveForwardX = H;
+export const moveForwardZ = H;
 
 function multiply(out: Float32Array, a: Float32Array, b: Float32Array): void {
   const t = new Float32Array(16);
@@ -35,54 +50,12 @@ export function updateCamera(
   viewWidth: number,
   viewHeight: number
 ): void {
-  const cy = Math.cos(YAW);
-  const sy = Math.sin(YAW);
-  const cp = Math.cos(PITCH);
-  const sp = Math.sin(PITCH);
-
-  // R = Rx(-pitch) * Ry(-yaw)
-  const r00 = cy;
-  const r02 = -sy;
-  const r10 = sp * sy;
-  const r11 = cp;
-  const r12 = sp * cy;
-  const r20 = cp * sy;
-  const r21 = -sp;
-  const r22 = cp * cy;
-
-  view[0] = r00;
-  view[1] = r10;
-  view[2] = r20;
-  view[3] = 0;
-  view[4] = 0;
-  view[5] = r11;
-  view[6] = r21;
-  view[7] = 0;
-  view[8] = r02;
-  view[9] = r12;
-  view[10] = r22;
-  view[11] = 0;
-  view[12] = -(r00 * targetX + r02 * targetZ);
-  view[13] = -(r10 * targetX + r12 * targetZ);
-  view[14] = -(r20 * targetX + r22 * targetZ);
-  view[15] = 1;
-
-  const near = -1000;
-  const far = 1000;
-  proj.fill(0);
+  view[12] = H * (targetZ - targetX);
+  view[13] = -H2 * (targetX + targetZ);
+  view[14] = -TH * (targetX + targetZ);
   proj[0] = 2 / viewWidth;
   proj[5] = 2 / viewHeight;
-  proj[10] = -2 / (far - near);
-  proj[14] = -(far + near) / (far - near);
-  proj[15] = 1;
-
   multiply(viewProj, proj, view);
-
-  moveRightX = cy;
-  moveRightZ = -sy;
-  const fl = Math.hypot(sy * sp, cy * sp) || 1;
-  moveForwardX = (sy * sp) / fl;
-  moveForwardZ = (cy * sp) / fl;
 }
 
 /** View-space origin is screen center; +Y is up in view, down on the 2D overlay. */
