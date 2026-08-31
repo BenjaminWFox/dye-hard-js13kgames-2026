@@ -1,13 +1,15 @@
-import { worldToScreen } from './camera';
-import { WAVE_ORIGIN_R } from './constants';
+import { PLAYER_SPAWN_X, PLAYER_SPAWN_Y } from './constants';
 import { spawnDamageNumber } from './fx';
 import { playHit } from './music';
-import { queueSprite, sheetUv } from './sprites';
+import { createSprite } from './sprites';
 
 export const PORTAL_W = 12;
 export const PORTAL_H = 23;
 export const PORTAL_MAX_HP = 100;
+/** Test ring around spawn. */
+const RING = 500;
 const MARKER_PAD = 14;
+/** Half-length of the edge marker triangle (tip to base). */
 const MARKER_LEN = 7;
 const MARKER_HALF = 5;
 
@@ -18,12 +20,15 @@ interface Portal {
 }
 
 export const portals: Portal[] = [];
+/** Bit i set = portal i is gone. */
 let portalsGone = 0;
-const portalUv = { u0: 0, v0: 0, u1: 1, v1: 1 };
+
+let portalSprite: HTMLCanvasElement;
+/** Single pending death; portals are far enough that one pulse cannot kill two. */
 let slain: { color: number; x: number; y: number } | null = null;
 
 export function bakePortals(): void {
-  Object.assign(portalUv, sheetUv(0, 19, PORTAL_W, PORTAL_H));
+  portalSprite = createSprite(0, 19, PORTAL_W, PORTAL_H);
 }
 
 export function resetPortals(): void {
@@ -31,15 +36,17 @@ export function resetPortals(): void {
   portalsGone = 0;
   slain = null;
   for (let i = 0; i < 7; i++) {
+    // Red at 12 o'clock, ROYGBIV clockwise.
     const ang = -Math.PI / 2 + (i * Math.PI * 2) / 7;
     portals.push({
-      x: Math.cos(ang) * WAVE_ORIGIN_R - PORTAL_W / 2,
-      y: Math.sin(ang) * WAVE_ORIGIN_R - PORTAL_H / 2,
+      x: PLAYER_SPAWN_X + Math.cos(ang) * RING - PORTAL_W / 2,
+      y: PLAYER_SPAWN_Y + Math.sin(ang) * RING - PORTAL_H / 2,
       hp: PORTAL_MAX_HP,
     });
   }
 }
 
+/** True if portal `i` is still a target. */
 export function portalLive(i: number): boolean {
   return i < 7 && !(portalsGone & (1 << i)) && !!portals[i];
 }
@@ -48,6 +55,7 @@ export function allPortalsGone(): boolean {
   return portalsGone === 127;
 }
 
+/** True if this hit killed the portal. */
 export function damagePortal(i: number, amount: number): boolean {
   if (!portalLive(i) || amount <= 0 || portals[i].hp <= 0) {
     return false;
@@ -71,13 +79,11 @@ export function takeSlainPortal(): { color: number; x: number; y: number } | nul
   return out;
 }
 
-export function hurtPortalsRing(
-  cx: number,
-  cy: number,
-  r: number,
-  amount: number,
-  seen: number
-): number {
+/**
+ * Damage portals whose center is inside radius `r`.
+ * `seen` is a 7-bit mask; returns the updated mask.
+ */
+export function hurtPortalsRing(cx: number, cy: number, r: number, amount: number, seen: number): number {
   for (let i = 0; i < 7; i++) {
     if (seen & (1 << i) || !portalLive(i)) {
       continue;
@@ -91,18 +97,10 @@ export function hurtPortalsRing(
   return seen;
 }
 
-export function queuePortals(): void {
-  for (let i = 0; i < 7; i++) {
-    if (!portalLive(i)) {
-      continue;
-    }
-    const p = portals[i];
-    queueSprite(p.x + PORTAL_W / 2, 0, p.y + PORTAL_H, PORTAL_W, PORTAL_H, portalUv);
-  }
-}
-
-export function drawPortalBars(
+export function drawPortals(
   ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
   viewWidth: number,
   viewHeight: number
 ): void {
@@ -111,18 +109,24 @@ export function drawPortalBars(
       continue;
     }
     const p = portals[i];
-    const s = worldToScreen(p.x + PORTAL_W / 2, 0, p.y + PORTAL_H, viewWidth, viewHeight);
-    const sx = Math.floor(s.x - PORTAL_W / 2);
-    const sy = Math.floor(s.y + 1);
+    const sx = Math.floor(p.x - cameraX);
+    const sy = Math.floor(p.y - cameraY);
+    if (sx + PORTAL_W < 0 || sy + PORTAL_H < 0 || sx > viewWidth || sy > viewHeight) {
+      continue;
+    }
+    ctx.drawImage(portalSprite, sx, sy);
     ctx.fillStyle = '#000';
-    ctx.fillRect(sx, sy, PORTAL_W, 3);
+    ctx.fillRect(sx, sy + PORTAL_H + 1, PORTAL_W, 3);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(sx + 1, sy + 1, Math.round((PORTAL_W - 2) * (p.hp / PORTAL_MAX_HP)), 1);
+    ctx.fillRect(sx + 1, sy + PORTAL_H + 2, Math.round((PORTAL_W - 2) * (p.hp / PORTAL_MAX_HP)), 1);
   }
 }
 
+/** Black edge triangles toward off-screen live portals. */
 export function drawPortalMarkers(
   ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
   viewWidth: number,
   viewHeight: number
 ): void {
@@ -135,12 +139,15 @@ export function drawPortalMarkers(
       continue;
     }
     const p = portals[i];
-    const s = worldToScreen(p.x + PORTAL_W / 2, 0, p.y + PORTAL_H / 2, viewWidth, viewHeight);
-    if (s.x > 0 && s.y > 0 && s.x < viewWidth && s.y < viewHeight) {
+    const left = p.x - cameraX;
+    const top = p.y - cameraY;
+    if (left + PORTAL_W > 0 && top + PORTAL_H > 0 && left < viewWidth && top < viewHeight) {
       continue;
     }
-    const dx = s.x - cx;
-    const dy = s.y - cy;
+    const sx = left + PORTAL_W / 2;
+    const sy = top + PORTAL_H / 2;
+    const dx = sx - cx;
+    const dy = sy - cy;
     let t = 1;
     if (dx !== 0) {
       t = Math.min(t, hw / Math.abs(dx));
@@ -153,6 +160,7 @@ export function drawPortalMarkers(
     const snap = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
     const cos = Math.cos(snap);
     const sin = Math.sin(snap);
+    // Tip at +MARKER_LEN along heading; base corners offset perpendicular.
     const tipX = mx + cos * MARKER_LEN;
     const tipY = my + sin * MARKER_LEN;
     const bx = mx - cos * (MARKER_LEN - 2);

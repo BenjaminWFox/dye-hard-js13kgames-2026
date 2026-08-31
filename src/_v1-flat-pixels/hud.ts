@@ -1,8 +1,6 @@
-import { PLAYER_WIDTH } from './constants';
 import { bakeText } from './font';
-import { colorLive, RAINBOW_COLORS } from './palette';
+import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { level, scrap, scrapSprite, xp, xpNeeded } from './pickups';
-import { player } from './player';
 
 const SCALE = 2;
 const PAD = 4 * SCALE;
@@ -22,6 +20,7 @@ let timerLabel: HTMLCanvasElement;
 let lastLevel = -1;
 let lastScrap = -1;
 let lastTimer = '';
+/** Centers of the 7 color squares, updated each drawHud. */
 const sqCenters = Array.from({ length: 7 }, () => ({ x: 0, y: 0 }));
 
 export function bakeHud(): void {
@@ -59,6 +58,7 @@ function outlinedBar(
   ctx.fillRect(x + SCALE, y + SCALE, Math.round(innerW * fill), innerH);
 }
 
+/** Pause icon plus a little extra pad so the tiny glyph is clickable. */
 export function pauseIconContains(x: number, y: number, viewHeight: number): boolean {
   const py = viewHeight - PAD - PAUSE_H;
   return (
@@ -69,26 +69,12 @@ export function pauseIconContains(x: number, y: number, viewHeight: number): boo
   );
 }
 
-export function colorSquareCenter(index: number): { x: number; y: number } {
+/** Center of color square `index` (0–6), from the last drawHud. */
+export function colorSquareCenter(index: number, _viewWidth: number): { x: number; y: number } {
   return sqCenters[index];
 }
 
-export function drawPlayerHp(
-  ctx: CanvasRenderingContext2D,
-  screenX: number,
-  screenY: number
-): void {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(screenX, screenY, PLAYER_WIDTH, 3);
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(
-    screenX + 1,
-    screenY + 1,
-    Math.round((PLAYER_WIDTH - 2) * (player.hp / player.maxHp)),
-    1
-  );
-}
-
+/** Screen-space HUD. `runTime` is elapsed run ms. */
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   viewWidth: number,
@@ -145,7 +131,7 @@ export function drawHud(
     sqCenters[i].y = sqY + SQ / 2;
     ctx.fillStyle = '#000';
     ctx.fillRect(sqX, sqY, SQ, SQ);
-    ctx.fillStyle = colorLive(i)
+    ctx.fillStyle = unlockedColors[i]
       ? '#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0')
       : '#747474';
     ctx.fillRect(sqX + SCALE, sqY + SCALE, SQ_INNER, SQ_INNER);
@@ -159,12 +145,8 @@ export function drawHud(
   const scrapX = iconX - 2 * SCALE - scrapLabel.width;
   const scrapY = iconY + ((iconH - scrapLabel.height) >> 1);
   ctx.fillStyle = '#000';
-  ctx.fillRect(
-    scrapX - SCALE,
-    scrapY - SCALE,
-    scrapLabel.width + 2 * SCALE,
-    scrapLabel.height + 2 * SCALE
-  );
+  ctx.fillRect(scrapX - SCALE, scrapY - SCALE, scrapLabel.width + 2 * SCALE, scrapLabel.height + 2 * SCALE);
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(scrapSprite, iconX, iconY, iconW, iconH);
   ctx.drawImage(scrapLabel, scrapX, scrapY);
 }

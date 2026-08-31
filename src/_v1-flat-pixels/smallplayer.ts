@@ -324,17 +324,41 @@ export function CPlayer() {
 // You can use it with https://sb.bitsnbites.eu/player-small.js in your
 // own product; see https://sb.bitsnbites.eu/demo.html for an example.
 
-// Pads 0/2/3/4 share one instrument row.
-const pad = [
-  2, 100, 128, 0, 3, 201, 128, 0, 0, 0, 5, 6, 58, 0, 0, 0, 0, 195, 6, 1, 2, 135, 0, 0, 32, 147, 6,
-  121, 6,
-];
-
 // Song data
 export default {
   songData: [
     { // Instrument 0
-      i: pad,
+      i: [
+      2, // OSC1_WAVEFORM
+      100, // OSC1_VOL
+      128, // OSC1_SEMI
+      0, // OSC1_XENV
+      3, // OSC2_WAVEFORM
+      201, // OSC2_VOL
+      128, // OSC2_SEMI
+      0, // OSC2_DETUNE
+      0, // OSC2_XENV
+      0, // NOISE_VOL
+      5, // ENV_ATTACK
+      6, // ENV_SUSTAIN
+      58, // ENV_RELEASE
+      0, // ENV_EXP_DECAY
+      0, // ARP_CHORD
+      0, // ARP_SPEED
+      0, // LFO_WAVEFORM
+      195, // LFO_AMT
+      6, // LFO_FREQ
+      1, // LFO_FX_FREQ
+      2, // FX_FILTER
+      135, // FX_FREQ
+      0, // FX_RESONANCE
+      0, // FX_DIST
+      32, // FX_DRIVE
+      147, // FX_PAN_AMT
+      6, // FX_PAN_FREQ
+      121, // FX_DELAY_AMT
+      6 // FX_DELAY_TIME
+      ],
       // Patterns
       p: [1,1,,1],
       // Columns
@@ -384,7 +408,37 @@ export default {
       ]
     },
     { // Instrument 2
-      i: pad,
+      i: [
+      2, // OSC1_WAVEFORM
+      100, // OSC1_VOL
+      128, // OSC1_SEMI
+      0, // OSC1_XENV
+      3, // OSC2_WAVEFORM
+      201, // OSC2_VOL
+      128, // OSC2_SEMI
+      0, // OSC2_DETUNE
+      0, // OSC2_XENV
+      0, // NOISE_VOL
+      5, // ENV_ATTACK
+      6, // ENV_SUSTAIN
+      58, // ENV_RELEASE
+      0, // ENV_EXP_DECAY
+      0, // ARP_CHORD
+      0, // ARP_SPEED
+      0, // LFO_WAVEFORM
+      195, // LFO_AMT
+      6, // LFO_FREQ
+      1, // LFO_FX_FREQ
+      2, // FX_FILTER
+      135, // FX_FREQ
+      0, // FX_RESONANCE
+      0, // FX_DIST
+      32, // FX_DRIVE
+      147, // FX_PAN_AMT
+      6, // FX_PAN_FREQ
+      121, // FX_DELAY_AMT
+      6 // FX_DELAY_TIME
+      ],
       // Patterns
       p: [1,,1,1],
       // Columns
@@ -394,7 +448,37 @@ export default {
       ]
     },
     { // Instrument 3
-      i: pad,
+      i: [
+      2, // OSC1_WAVEFORM
+      100, // OSC1_VOL
+      128, // OSC1_SEMI
+      0, // OSC1_XENV
+      3, // OSC2_WAVEFORM
+      201, // OSC2_VOL
+      128, // OSC2_SEMI
+      0, // OSC2_DETUNE
+      0, // OSC2_XENV
+      0, // NOISE_VOL
+      5, // ENV_ATTACK
+      6, // ENV_SUSTAIN
+      58, // ENV_RELEASE
+      0, // ENV_EXP_DECAY
+      0, // ARP_CHORD
+      0, // ARP_SPEED
+      0, // LFO_WAVEFORM
+      195, // LFO_AMT
+      6, // LFO_FREQ
+      1, // LFO_FX_FREQ
+      2, // FX_FILTER
+      135, // FX_FREQ
+      0, // FX_RESONANCE
+      0, // FX_DIST
+      32, // FX_DRIVE
+      147, // FX_PAN_AMT
+      6, // FX_PAN_FREQ
+      121, // FX_DELAY_AMT
+      6 // FX_DELAY_TIME
+      ],
       // Patterns
       p: [1,1,1],
       // Columns
@@ -404,7 +488,37 @@ export default {
       ]
     },
     { // Instrument 4
-      i: pad,
+      i: [
+      2, // OSC1_WAVEFORM
+      100, // OSC1_VOL
+      128, // OSC1_SEMI
+      0, // OSC1_XENV
+      3, // OSC2_WAVEFORM
+      201, // OSC2_VOL
+      128, // OSC2_SEMI
+      0, // OSC2_DETUNE
+      0, // OSC2_XENV
+      0, // NOISE_VOL
+      5, // ENV_ATTACK
+      6, // ENV_SUSTAIN
+      58, // ENV_RELEASE
+      0, // ENV_EXP_DECAY
+      0, // ARP_CHORD
+      0, // ARP_SPEED
+      0, // LFO_WAVEFORM
+      195, // LFO_AMT
+      6, // LFO_FREQ
+      1, // LFO_FX_FREQ
+      2, // FX_FILTER
+      135, // FX_FREQ
+      0, // FX_RESONANCE
+      0, // FX_DIST
+      32, // FX_DRIVE
+      147, // FX_PAN_AMT
+      6, // FX_PAN_FREQ
+      121, // FX_DELAY_AMT
+      6 // FX_DELAY_TIME
+      ],
       // Patterns
       p: [,,1,1],
       // Columns

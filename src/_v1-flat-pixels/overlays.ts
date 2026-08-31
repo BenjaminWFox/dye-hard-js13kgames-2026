@@ -1,15 +1,18 @@
+// Director's Cut: pipes, plaza portal, and the opening cutscene live in
+// src/directors-cut/. Production portals are the 500px ROYGBIV ring.
 import { resetCombat } from './combat';
 import { resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
-import { resetFx, spawnHudShower, updateHudShower } from './fx';
+import { resetExplosions, spawnHudShower, updateHudShower } from './fx';
 import { colorSquareCenter, formatScrap, pauseIconContains } from './hud';
 import { mouse, wasPressed } from './input';
+import { bakeTiles } from './map';
 import { playPowerup } from './music';
-import { clearWave, RAINBOW_COLORS, setUnlockedBits, startWave, unlockedBits } from './palette';
+import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { consumeLevelUp, resetPickups, scrap, spendScrap } from './pickups';
-import { resetParticles } from './particles';
 import { player, resetPlayer, tryRevive } from './player';
 import { allPortalsGone, resetPortals, takeSlainPortal } from './portals';
 import { loadSave, saveGame } from './save';
+import { rebakeAllSprites } from './sprites';
 import {
   applyPick,
   COLOR_NAMES,
@@ -42,6 +45,8 @@ export const SCENE_TITLE = 0;
 export const SCENE_RUN = 1;
 
 export let scene = SCENE_TITLE;
+
+/** Elapsed run time (ms). Pauses with overlays. */
 export let runTime = 0;
 
 const TITLE_LETTERS = 7;
@@ -55,23 +60,29 @@ let titleDraining = false;
 let titleGrey = 0;
 let titleDrainT = 0;
 
+/** Director's Cut cutscene still reads these. Unused this pass. */
+export const WAVE_SPEED = 0.38;
+export const colorWave = { active: false, x: 0, y: 0, r: 0 };
+
 const overlayQueue: (() => void)[] = [];
 
-function enqueueOverlay(open: () => void): void {
+export function enqueueOverlay(open: () => void): void {
   overlayQueue.push(open);
 }
 
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen();
+  return scene !== SCENE_RUN || isUiOpen() || titleDraining;
 }
 
 function openTitle(): void {
   pauseOpen = false;
   titleDraining = false;
   scene = SCENE_TITLE;
-  clearWave();
-  setUnlockedBits(127);
-  resetPlayer();
+  for (let i = 0; i < 7; i++) {
+    unlockedColors[i] = true;
+  }
+  bakeTiles();
+  rebakeAllSprites();
   openMenu(
     'DYE HARD',
     ['START', 'UPGRADES'],
@@ -96,8 +107,10 @@ function startTitleDrain(): void {
 }
 
 function lockNextTitleColor(): void {
-  setUnlockedBits(unlockedBits & ~(1 << titleGrey));
+  unlockedColors[titleGrey] = false;
   titleGrey++;
+  bakeTiles();
+  rebakeAllSprites();
   rebakeRainbowTitle();
 }
 
@@ -199,15 +212,17 @@ function openUnlock(color: number): void {
   );
 }
 
-function resolveSlainPortals(): void {
+function resolveSlainPortals(viewWidth: number): void {
   const slain = takeSlainPortal();
   if (!slain) {
     return;
   }
-  startWave(slain.x, slain.y, slain.color);
+  unlockedColors[slain.color] = true;
+  rebakeAllSprites();
+  bakeTiles();
   unlockNextTier();
   spawnPortalElite(slain.x, slain.y);
-  const sq = colorSquareCenter(slain.color);
+  const sq = colorSquareCenter(slain.color, viewWidth);
   spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[slain.color]);
   const color = slain.color;
   enqueueOverlay(() => openUnlock(color));
@@ -249,18 +264,20 @@ export function resetRun(): void {
   resetPlayer();
   resetEnemies();
   resetPickups();
-  resetFx();
-  resetParticles();
+  resetExplosions();
   resetCombat();
   resetPortals();
-  clearWave();
-  setUnlockedBits(0);
+  for (let i = 0; i < 7; i++) {
+    unlockedColors[i] = false;
+  }
+  rebakeAllSprites();
+  bakeTiles();
 }
 
 export function updateOverlays(viewWidth: number, viewHeight: number, dt: number): void {
   updateHudShower(dt);
   if (scene === SCENE_RUN) {
-    resolveSlainPortals();
+    resolveSlainPortals(viewWidth);
   }
   if (titleDraining) {
     titleDrainT += dt;

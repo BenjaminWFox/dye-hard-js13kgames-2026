@@ -1,4 +1,3 @@
-import { worldToScreen } from './camera';
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from './constants';
 import {
   applyKnockback,
@@ -6,23 +5,25 @@ import {
   crowdControlAt,
   type Enemy,
   enemies,
-  enemyFeet,
   enemyHitbox,
   hurtEnemyAt,
 } from './enemies';
 import { playHorn, playNova } from './music';
-import { colorLive } from './palette';
-import { damagePlayer, freezePlayer, getPlayerHitbox, player, playerFeet } from './player';
+import { RAINBOW_COLORS, unlockedColors } from './palette';
+import { damagePlayer, freezePlayer, getPlayerHitbox, player } from './player';
 import { damagePortal, hurtPortalsRing, portalLive, portals, PORTAL_H, PORTAL_W } from './portals';
+import { createSprite } from './sprites';
 import { pwr, STAT_STR, STAT_WIS } from './stats';
 
 const HORN_MS = 250;
 const HORN_BEATS = 6;
 const HORN_DAMAGE = 10;
+/** Tip reach from the sprite's left/right edge (hitbox, not the 17×9 art). */
 const HORN_LEN = 35;
+/** Visual half-height of the old chevron; still drives hitbox height. */
 const HORN_SPREAD = 8;
-export const HORN_SW = 13;
-export const HORN_SH = 9;
+const HORN_SW = 17;
+const HORN_SH = 9;
 
 const STOMP_DAMAGE = 5;
 const NOVA_RADIUS = 66;
@@ -37,7 +38,9 @@ const NOVA_PERIOD = 2000;
 const NOVA_LIFE = 500;
 const SPEED_BURST_MS = 1000;
 const FREEZE_MS = 500;
+/** 2× the 7px enemy sprite cell — "small impact radius". */
 const FROSTBALL_RADIUS = 14;
+
 const HEAL_AMOUNT = 8;
 
 const BOLT_FIRE = 0;
@@ -53,13 +56,18 @@ const N_INDIGO = 64;
 const N_VIOLET = 128;
 
 let novaCd = 0;
+/** Time remaining in the current 250ms beat. */
 let hornT = 0;
+/** 0–1 = right/left lash, 2–5 = rest. Starts at 5 so the first tick wraps to 0. */
 let hornBeat = 5;
+/** 1 = right, -1 = left. Starts at -1 so the first fire flips to right. */
 let hornDir = -1;
+/** Enemies already tagged by the current lash. */
 const hornSeen: Enemy[] = [];
+/** Portal bits already tagged by the current lash. */
 let hornGates = 0;
 
-export interface Bolt {
+interface Bolt {
   x: number;
   y: number;
   vx: number;
@@ -83,6 +91,15 @@ interface Nova {
 const bolts: Bolt[] = [];
 const novas: Nova[] = [];
 
+let hornRight: HTMLCanvasElement | undefined;
+let hornLeft: HTMLCanvasElement | undefined;
+
+let viewX = 0;
+let viewY = 0;
+let viewW = 1;
+let viewH = 1;
+
+/** Vertical center of the sprite. Follows player.x/y. */
 function hornY(): number {
   return player.y + PLAYER_HEIGHT / 2;
 }
@@ -146,14 +163,25 @@ function nearestEnemyCenter(fromX: number, fromY: number): { x: number; y: numbe
 function playerBits(): number {
   let bits = N_WHITE;
   for (let i = 0; i < 7; i++) {
-    if (colorLive(i)) {
+    if (unlockedColors[i]) {
       bits |= 2 << i;
     }
   }
   return bits;
 }
 
-export function updateCombat(dt: number, viewWidth: number, viewHeight: number): void {
+export function updateCombat(
+  dt: number,
+  cameraX: number,
+  cameraY: number,
+  viewWidth: number,
+  viewHeight: number
+): void {
+  viewX = cameraX;
+  viewY = cameraY;
+  viewW = viewWidth;
+  viewH = viewHeight;
+
   hornT -= dt;
   if (hornT <= 0) {
     hornT += HORN_MS;
@@ -183,7 +211,7 @@ export function updateCombat(dt: number, viewWidth: number, viewHeight: number):
   }
 
   updateNovas(dt);
-  updateBolts(dt, viewWidth, viewHeight);
+  updateBolts(dt);
 }
 
 export function resetCombat(): void {
@@ -312,7 +340,8 @@ function updateNovas(dt: number): void {
         if (n.owner ? !p.friendly : p.friendly) {
           continue;
         }
-        if (Math.hypot(p.x - c.x, p.y - c.y) <= r) {
+        const dist = Math.hypot(p.x - c.x, p.y - c.y);
+        if (dist <= r) {
           bolts.splice(b, 1);
         }
       }
@@ -364,14 +393,15 @@ function updateNovas(dt: number): void {
   }
 }
 
-function updateBolts(dt: number, viewWidth: number, viewHeight: number): void {
+function updateBolts(dt: number): void {
   const hw = BOLT_SIZE / 2;
   for (let i = bolts.length - 1; i >= 0; i--) {
     const p = bolts[i];
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    const s = worldToScreen(p.x, 0, p.y, viewWidth, viewHeight);
-    if (s.x + hw < 0 || s.y + hw < 0 || s.x - hw > viewWidth || s.y - hw > viewHeight) {
+    const sx = p.x - viewX;
+    const sy = p.y - viewY;
+    if (sx + hw < 0 || sy + hw < 0 || sx - hw > viewW || sy - hw > viewH) {
       bolts.splice(i, 1);
       continue;
     }
@@ -409,6 +439,7 @@ function updateBolts(dt: number, viewWidth: number, viewHeight: number): void {
           damagePortal(gate, p.damage);
         }
         bolts.splice(i, 1);
+        continue;
       }
     } else {
       const box = getPlayerHitbox();
@@ -427,36 +458,93 @@ function updateBolts(dt: number, viewWidth: number, viewHeight: number): void {
   }
 }
 
-export function hornLash(): number {
-  return hornBeat < 2 ? hornDir : 0;
-}
-
-export function playerNovaState(): { x: number; y: number; r: number } | null {
+export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number): void {
+  if (hornBeat < 2) {
+    if (!hornRight) {
+      hornRight = createSprite(22, 29, HORN_SW, HORN_SH);
+      hornLeft = createSprite(22, 29, HORN_SW, HORN_SH, true);
+    }
+    ctx.drawImage(
+      (hornDir > 0 ? hornRight : hornLeft) as HTMLCanvasElement,
+      Math.floor(player.x + (hornDir > 0 ? PLAYER_WIDTH : -HORN_SW) - cameraX),
+      Math.floor(hornY() - HORN_SH / 2 - cameraY)
+    );
+  }
   for (const n of novas) {
-    if (!n.owner) {
-      const f = playerFeet();
-      return { x: f.x, y: f.z, r: novaRadius(n) };
+    const c = novaCenter(n);
+    const r = novaRadius(n);
+    const cols: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      if (n.bits & (2 << i)) {
+        cols.push('#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0'));
+      }
+    }
+    const cx = Math.floor(c.x - cameraX) + 0.5;
+    const cy = Math.floor(c.y - cameraY) + 0.5;
+    if (n.bits & N_WHITE && r >= 1) {
+      ctx.strokeStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      if (r > 2) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 1, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (r > 3) {
+        ctx.strokeStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    for (let i = 0; i < cols.length; i++) {
+      const band = r - 3 - (cols.length - 1 - i);
+      if (band < 1) {
+        continue;
+      }
+      ctx.strokeStyle = cols[i];
+      ctx.beginPath();
+      ctx.arc(cx, cy, band, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
-  return null;
-}
 
-export function eliteNovaStates(): { x: number; y: number; r: number; color: number }[] {
-  const out: { x: number; y: number; r: number; color: number }[] = [];
-  for (const n of novas) {
-    if (!n.owner || n.owner.color < 0) {
-      continue;
-    }
-    const f = enemyFeet(n.owner);
-    out.push({ x: f.x, y: f.z, r: novaRadius(n), color: n.owner.color });
+  const hw = (BOLT_SIZE / 2) | 0;
+  for (const p of bolts) {
+    const sx = Math.floor(p.x - cameraX) - hw;
+    const sy = Math.floor(p.y - cameraY) - hw;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(sx, sy, BOLT_SIZE + 1, BOLT_SIZE + 1);
+    ctx.fillStyle =
+      '#' + RAINBOW_COLORS[p.kind === BOLT_FROST ? 5 : 0].toString(16).padStart(6, '0');
+    ctx.fillRect(sx + 1, sy + 1, BOLT_SIZE - 1, BOLT_SIZE - 1);
   }
-  return out;
+
+  if (player.frozen > 0) {
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#8df';
+    ctx.fillRect(
+      Math.floor(player.x - cameraX),
+      Math.floor(player.y - cameraY),
+      PLAYER_WIDTH,
+      PLAYER_HEIGHT
+    );
+    ctx.globalAlpha = 1;
+  }
 }
 
-export function liveBolts(): Bolt[] {
-  return bolts;
-}
-
-export function boltColor(bolt: Bolt): number {
-  return bolt.kind === BOLT_FROST ? 5 : 0;
+/** Debug: live horn AABB during a lash; empty while resting. */
+export function combatDebug(): {
+  horn: { x: number; y: number; w: number; h: number };
+  radius: number;
+} {
+  return {
+    horn: hornBeat < 2 ? hornHitbox() : { x: 0, y: 0, w: 0, h: 0 },
+    radius: NOVA_RADIUS,
+  };
 }

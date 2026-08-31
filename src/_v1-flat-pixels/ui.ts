@@ -47,6 +47,7 @@ export function closeUi(): void {
   rects.length = 0;
 }
 
+/** ROYGBIV per letter; 1px black outline. Letters follow the live palette lock. */
 function bakeRainbowTitle(text: string, scale: number): HTMLCanvasElement {
   const { w, h } = measureText(text, scale);
   const canvas = document.createElement('canvas');
@@ -89,6 +90,7 @@ function wrap(text: string, maxW: number): string[] {
   return lines;
 }
 
+/** Hide list buttons but keep the heading (title Start drain). */
 export function hideMenuButtons(): void {
   labels = [];
   bodies = [];
@@ -134,11 +136,12 @@ export function openCards(
   titleColor = '#fff'
 ): void {
   layout = LAYOUT_CARDS;
-  heading = title ? bakeText(title, titleColor) : null;
+  const cardScale = 1;
+  heading = title ? bakeText(title, titleColor, cardScale) : null;
   subheading = null;
   headingTop = false;
-  labels = items.map((item) => bakeText(item.title));
-  bodies = items.map((item) => bakeText(item.body));
+  labels = items.map((item) => bakeText(item.title, '#fff', cardScale));
+  bodies = items.map((item) => bakeText(item.body, '#fff', cardScale));
   selected = 0;
   onPick = pick;
 }
@@ -191,6 +194,7 @@ function layoutUi(viewWidth: number, viewHeight: number): void {
     if (heading) {
       headingX = (viewWidth - heading.width) >> 1;
       if (headingTop) {
+        // Unicorn is camera-centered.
         const playerY = (viewHeight - PLAYER_HEIGHT) >> 1;
         headingY = playerY - 8 - heading.height;
         y = playerY + PLAYER_HEIGHT + 8;
@@ -245,6 +249,7 @@ function layoutUi(viewWidth: number, viewHeight: number): void {
   }
 }
 
+/** Navigate with move keys / mouse hover; Enter or click confirms. */
 export function updateUi(viewWidth: number, viewHeight: number): void {
   if (!onPick) {
     return;
@@ -275,9 +280,9 @@ export function updateUi(viewWidth: number, viewHeight: number): void {
       selected = i;
     }
   }
-  const confirm = wasPressed('Enter') || wasPressed('NumpadEnter');
-  const click = mouse.clicked && pointIn(mouse.x, mouse.y, rects[selected]);
-  if (confirm || click) {
+  const confirmKey = wasPressed('Enter') || wasPressed('NumpadEnter');
+  const confirmClick = mouse.clicked && pointIn(mouse.x, mouse.y, rects[selected]);
+  if (confirmKey || confirmClick) {
     onPick(selected);
   }
 }
@@ -287,16 +292,19 @@ export function drawUi(ctx: CanvasRenderingContext2D, viewWidth: number, viewHei
     return;
   }
   layoutUi(viewWidth, viewHeight);
+
   if (!headingTop) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, viewWidth, viewHeight);
   }
+
   if (heading) {
     ctx.drawImage(heading, headingX, headingY);
   }
   if (subheading) {
     ctx.drawImage(subheading, subX, subY);
   }
+
   if (storyLines.length) {
     let inner = 0;
     for (const line of storyLines) {
@@ -317,6 +325,7 @@ export function drawUi(ctx: CanvasRenderingContext2D, viewWidth: number, viewHei
       ly += FONT_H + gap;
     }
   }
+
   for (let i = 0; i < rects.length; i++) {
     const r = rects[i];
     ctx.fillStyle = '#333333';
@@ -329,6 +338,7 @@ export function drawUi(ctx: CanvasRenderingContext2D, viewWidth: number, viewHei
       ctx.fillStyle = '#000';
       ctx.fillRect(r.x + 3, r.y + 3, r.w - 6, r.h - 6);
     }
+
     ctx.save();
     ctx.beginPath();
     const inset = i === selected ? 4 : 2;

@@ -1,12 +1,13 @@
 import { PLAYER_SPEED, PLAYER_WIDTH } from './constants';
 import { playCrystal } from './music';
 import { getPlayerHitbox } from './player';
-import { bakeCell, queueSprite, sheetUv } from './sprites';
+import { createSprite } from './sprites';
 import { SHOP_MAGNET, shopRanks } from './stats';
 
 export const PICKUP_CRYSTAL = 0;
 export const PICKUP_SCRAP = 1;
 
+// Inherent drop chances are TBD; these are placeholders until the tuning phase.
 const CRYSTAL_CHANCE = 0.5;
 const SCRAP_CHANCE = 0.2;
 
@@ -27,15 +28,19 @@ interface Pickup {
 
 export const pickups: Pickup[] = [];
 
+/** In-run XP remainder toward the next level. */
 export let xp = 0;
+/** Starts at 1; increments when the bar fills (one queued overlay per wrap). */
 export let level = 1;
+/** Magneted scrap this session; persisted with shop ranks in localStorage. */
 export let scrap = 0;
+/** Level-ups waiting for the overlay queue. */
 export let pendingLevelUps = 0;
 
-const crystalUv = { u0: 0, v0: 0, u1: 1, v1: 1 };
-const scrapUv = { u0: 0, v0: 0, u1: 1, v1: 1 };
+let crystalSprite: HTMLCanvasElement;
 export let scrapSprite: HTMLCanvasElement;
 
+/** Placeholder curve until the tuning phase. */
 export function xpNeeded(): number {
   return 5 * level;
 }
@@ -49,6 +54,7 @@ export function addXp(amount: number): void {
   }
 }
 
+/** True if a level-up overlay should open. */
 export function consumeLevelUp(): boolean {
   if (pendingLevelUps <= 0) {
     return false;
@@ -69,6 +75,7 @@ export function spendScrap(amount: number): boolean {
   return true;
 }
 
+/** Clears ground pickups and XP. Magneted scrap is kept. */
 export function resetPickups(): void {
   pickups.length = 0;
   xp = 0;
@@ -77,11 +84,11 @@ export function resetPickups(): void {
 }
 
 export function bakePickups(): void {
-  Object.assign(crystalUv, sheetUv(12, 29, CRYSTAL_W, CRYSTAL_H));
-  Object.assign(scrapUv, sheetUv(16, 29, SCRAP_W, SCRAP_H));
-  scrapSprite = bakeCell(16, 29, SCRAP_W, SCRAP_H);
+  crystalSprite = createSprite(12, 29, CRYSTAL_W, CRYSTAL_H);
+  scrapSprite = createSprite(16, 29, SCRAP_W, SCRAP_H);
 }
 
+/** Elite / mini-boss: extra rolls plus guaranteed scrap. */
 export function dropEliteLoot(x: number, y: number): void {
   for (let i = 0; i < 3; i++) {
     dropLoot(x + (Math.random() - 0.5) * 12, y + (Math.random() - 0.5) * 12);
@@ -96,6 +103,7 @@ export function dropEliteLoot(x: number, y: number): void {
   }
 }
 
+/** Independent crystal/scrap rolls at a world point (usually an enemy center). */
 export function dropLoot(x: number, y: number): void {
   if (Math.random() < CRYSTAL_CHANCE) {
     pickups.push({
@@ -154,11 +162,25 @@ export function updatePickups(dt: number): void {
   }
 }
 
-export function queuePickups(): void {
+export function drawPickups(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  viewWidth: number,
+  viewHeight: number
+): void {
   for (const p of pickups) {
-    const crystal = p.kind === PICKUP_CRYSTAL;
-    const w = crystal ? CRYSTAL_W : SCRAP_W;
-    const h = crystal ? CRYSTAL_H : SCRAP_H;
-    queueSprite(p.x + w / 2, 0, p.y + h, w, h, crystal ? crystalUv : scrapUv);
+    const canvas = p.kind === PICKUP_CRYSTAL ? crystalSprite : scrapSprite;
+    const screenX = Math.floor(p.x - cameraX);
+    const screenY = Math.floor(p.y - cameraY);
+    if (
+      screenX + canvas.width < 0 ||
+      screenY + canvas.height < 0 ||
+      screenX > viewWidth ||
+      screenY > viewHeight
+    ) {
+      continue;
+    }
+    ctx.drawImage(canvas, screenX, screenY);
   }
 }

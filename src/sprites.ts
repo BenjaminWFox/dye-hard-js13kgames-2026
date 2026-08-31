@@ -1,184 +1,82 @@
-import { currentColor } from './palette';
+import { proj, view } from './camera';
+import { PLAYER_HEIGHT, PLAYER_WIDTH } from './constants';
+import { bindAttrib, makeProgram, makeUnitQuad, uploadTexture } from './gl';
+import { PALETTE_GLSL, setPaletteUniforms, snapAlias } from './palette';
 
-interface BakedSprite {
-  canvas: HTMLCanvasElement;
-  sourceX: number;
-  sourceY: number;
-  width: number;
-  height: number;
-  flipH: boolean;
-  flipV: boolean;
-  /** Quarter-turns counter-clockwise: 0–3 */
-  rot90: number;
-  /** If set, sheet pixels of this rgb are treated as `recolorTo` before palette bake. */
-  recolorFrom: number;
-  recolorTo: number;
-  /** Walk-frame leg cut (§3 Animation): 0 = none, 1 = left leg, 2 = right leg. */
-  legCut: number;
-  /** If true, `recolorTo` skips the locked-palette remap (pipe stripes). */
-  keepRecolor: boolean;
+const VS = `
+attribute vec2 a;
+uniform vec3 f;
+uniform vec2 z,o;
+uniform vec4 v;
+uniform mat4 V,P;
+varying vec2 t,x;
+void main(){
+  t=mix(v.xy,v.zw,vec2(a.x+.5,a.y));
+  x=f.xz;
+  vec4 p=V*vec4(f,1.0);
+  p.xy+=a*z+o;
+  gl_Position=P*p;
+}
+`;
+
+const FS = `
+precision mediump float;
+varying vec2 t,x;
+uniform sampler2D T;
+${PALETTE_GLSL}
+void main(){
+  vec4 e=texture2D(T,t);
+  if(e.a<.5)discard;
+  gl_FragColor=vec4(p(e.rgb,x),e.a);
+}
+`;
+
+interface SpriteDraw {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  h: number;
+  ox: number;
+  oy: number;
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
 }
 
-let sheet: ImageData;
-const bakedSprites: BakedSprite[] = [];
+const queue: SpriteDraw[] = [];
+let program: WebGLProgram;
+let quad: WebGLBuffer;
+let texture: WebGLTexture;
+let sheetCanvas: HTMLCanvasElement;
+let sheetPixels: ImageData;
+let sheetW = 1;
+let sheetH = 1;
+let locView: WebGLUniformLocation;
+let locProj: WebGLUniformLocation;
+let locFeet: WebGLUniformLocation;
+let locSize: WebGLUniformLocation;
+let locUv: WebGLUniformLocation;
+let locTex: WebGLUniformLocation;
+let locViewOff: WebGLUniformLocation;
 
-/** Load the sprite sheet once and keep its raw pixels for baking. */
-export async function loadSpriteSheet(url: string): Promise<void> {
-  const image = new Image();
-  image.src = url;
-  await image.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
-  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-  ctx.drawImage(image, 0, 0);
-  sheet = ctx.getImageData(0, 0, image.width, image.height);
-}
+export let playerUv = { u0: 0, v0: 0, u1: 1, v1: 1 };
 
-/**
- * Bake a region of the sheet into its own canvas, applying the current palette
- * state (locked rainbow colors render as grey) and optional flips / rotation.
- * The returned canvas is stable: rebakes redraw into it in place.
- *
- * Transform order: flip in source space, then rotate 90° CCW `rot90` times.
- * Odd rotations swap width/height.
- *
- * `recolorFrom`/`recolorTo` swap an authored rgb (e.g. the pipe stripe) to a
- * rainbow color and skip the locked-palette remap, so the stripe stays colored
- * even while the rest of the world is grey.
- */
-export function createSprite(
-  sourceX: number,
-  sourceY: number,
-  width: number,
-  height: number,
-  flipH = false,
-  flipV = false,
-  rot90 = 0,
-  recolorFrom = 0,
-  recolorTo = 0,
-  legCut = 0,
-  keepRecolor = false
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = rot90 % 2 === 0 ? width : height;
-  canvas.height = rot90 % 2 === 0 ? height : width;
-  const sprite: BakedSprite = {
-    canvas,
-    sourceX,
-    sourceY,
-    width,
-    height,
-    flipH,
-    flipV,
-    rot90,
-    recolorFrom,
-    recolorTo,
-    legCut,
-    keepRecolor,
+export function sheetUv(
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number
+): { u0: number; v0: number; u1: number; v1: number } {
+  return {
+    u0: sx / sheetW,
+    v0: 1 - (sy + sh) / sheetH,
+    u1: (sx + sw) / sheetW,
+    v1: 1 - sy / sheetH,
   };
-  bake(sprite);
-  bakedSprites.push(sprite);
-  return canvas;
 }
 
-/**
- * Idle + two walk frames for an 11×19 character, derived from the single sheet
- * frame via the leg-cut trick (§3 Animation). Returns [idle, leftCut, rightCut].
- */
-export function createWalkSprites(
-  sourceX: number,
-  sourceY: number,
-  width: number,
-  height: number
-): HTMLCanvasElement[] {
-  return [0, 1, 2].map((cut) =>
-    createSprite(sourceX, sourceY, width, height, false, false, 0, 0, 0, cut)
-  );
-}
-
-function bake(sprite: BakedSprite): void {
-  const {
-    canvas,
-    sourceX,
-    sourceY,
-    width,
-    height,
-    flipH,
-    flipV,
-    rot90,
-    recolorFrom,
-    recolorTo,
-    legCut,
-    keepRecolor,
-  } = sprite;
-  const outWidth = canvas.width;
-  const outHeight = canvas.height;
-  const output = new ImageData(outWidth, outHeight);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      // Leg-cut walk frame: drop the bottom 2 rows of one leg (4 columns off
-      // the vertical midline) and paint the row above solid black as the new
-      // foot outline, so that leg reads as lifted.
-      let footOutline = false;
-      if (legCut) {
-        const cutX = legCut === 1 ? 1 : 6;
-        if (x >= cutX && x < cutX + 4) {
-          if (y >= height - 2) {
-            continue;
-          }
-          footOutline = y === height - 3;
-        }
-      }
-      const srcX = sourceX + (flipH ? width - 1 - x : x);
-      const srcY = sourceY + (flipV ? height - 1 - y : y);
-      const srcIndex = (srcY * sheet.width + srcX) * 4;
-      const alpha = sheet.data[srcIndex + 3];
-      if (alpha === 0) {
-        continue;
-      }
-      let rgb =
-        (sheet.data[srcIndex] << 16) | (sheet.data[srcIndex + 1] << 8) | sheet.data[srcIndex + 2];
-      if (footOutline) {
-        rgb = 0;
-      } else if (recolorTo && rgb === recolorFrom) {
-        rgb = keepRecolor ? recolorTo : currentColor(recolorTo);
-      } else {
-        rgb = currentColor(rgb);
-      }
-      const r = (rgb >> 16) & 255;
-      const g = (rgb >> 8) & 255;
-      const b = rgb & 255;
-
-      let dx = x;
-      let dy = y;
-      let dw = width;
-      let dh = height;
-      for (let i = 0; i < rot90; i++) {
-        const ndx = dy;
-        const ndy = dw - 1 - dx;
-        dx = ndx;
-        dy = ndy;
-        const tmp = dw;
-        dw = dh;
-        dh = tmp;
-      }
-
-      const outIndex = (dy * outWidth + dx) * 4;
-      output.data[outIndex] = r;
-      output.data[outIndex + 1] = g;
-      output.data[outIndex + 2] = b;
-      output.data[outIndex + 3] = alpha;
-    }
-  }
-  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-  ctx.putImageData(output, 0, 0);
-}
-
-/**
- * Tight AABB of the opaque pixels inside a sheet cell, relative to the cell
- * origin. Used for content-sized hitboxes (enemy cells are padded to 7×9).
- */
 export function measureContentBox(
   sourceX: number,
   sourceY: number,
@@ -189,9 +87,10 @@ export function measureContentBox(
   let minY = height;
   let maxX = -1;
   let maxY = -1;
+  const data = sheetPixels.data;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const alpha = sheet.data[((sourceY + y) * sheet.width + sourceX + x) * 4 + 3];
+      const alpha = data[((sourceY + y) * sheetPixels.width + sourceX + x) * 4 + 3];
       if (alpha === 0) {
         continue;
       }
@@ -212,9 +111,103 @@ export function measureContentBox(
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
-/** Re-render every baked sprite after the palette unlock state changes. */
-export function rebakeAllSprites(): void {
-  for (const sprite of bakedSprites) {
-    bake(sprite);
+export function bakeCell(sx: number, sy: number, sw: number, sh: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  ctx.drawImage(sheetCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return canvas;
+}
+
+export async function initSprites(gl: WebGLRenderingContext): Promise<void> {
+  program = makeProgram(gl, VS, FS);
+  quad = makeUnitQuad(gl);
+  locView = gl.getUniformLocation(program, 'V') as WebGLUniformLocation;
+  locProj = gl.getUniformLocation(program, 'P') as WebGLUniformLocation;
+  locFeet = gl.getUniformLocation(program, 'f') as WebGLUniformLocation;
+  locSize = gl.getUniformLocation(program, 'z') as WebGLUniformLocation;
+  locUv = gl.getUniformLocation(program, 'v') as WebGLUniformLocation;
+  locTex = gl.getUniformLocation(program, 'T') as WebGLUniformLocation;
+  locViewOff = gl.getUniformLocation(program, 'o') as WebGLUniformLocation;
+
+  const image = new Image();
+  image.src = 'sprites.png';
+  await image.decode();
+  sheetCanvas = document.createElement('canvas');
+  sheetCanvas.width = image.width;
+  sheetCanvas.height = image.height;
+  const ctx = sheetCanvas.getContext('2d') as CanvasRenderingContext2D;
+  ctx.drawImage(image, 0, 0);
+  sheetPixels = ctx.getImageData(0, 0, image.width, image.height);
+  const data = sheetPixels.data;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) {
+      continue;
+    }
+    const rgb = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+    const snapped = snapAlias(rgb);
+    if (snapped !== rgb) {
+      data[i] = (snapped >> 16) & 255;
+      data[i + 1] = (snapped >> 8) & 255;
+      data[i + 2] = snapped & 255;
+    }
+  }
+  ctx.putImageData(sheetPixels, 0, 0);
+  texture = uploadTexture(gl, sheetCanvas);
+  sheetW = image.width;
+  sheetH = image.height;
+  playerUv = sheetUv(0, 0, PLAYER_WIDTH, PLAYER_HEIGHT);
+}
+
+export function beginSprites(): void {
+  queue.length = 0;
+}
+
+export function queueSprite(
+  x: number,
+  y: number,
+  z: number,
+  w: number,
+  h: number,
+  uv: { u0: number; v0: number; u1: number; v1: number },
+  flipH = false,
+  viewOffX = 0,
+  viewOffY = 0
+): void {
+  queue.push({
+    x,
+    y,
+    z,
+    w,
+    h,
+    ox: viewOffX,
+    oy: viewOffY,
+    u0: flipH ? uv.u1 : uv.u0,
+    v0: uv.v0,
+    u1: flipH ? uv.u0 : uv.u1,
+    v1: uv.v1,
+  });
+}
+
+export function flushSprites(gl: WebGLRenderingContext): void {
+  if (queue.length === 0) {
+    return;
+  }
+  queue.sort((a, b) => view[2] * b.x + view[10] * b.z - (view[2] * a.x + view[10] * a.z));
+  gl.useProgram(program);
+  gl.uniformMatrix4fv(locView, false, view);
+  gl.uniformMatrix4fv(locProj, false, proj);
+  setPaletteUniforms(gl, program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.uniform1i(locTex, 0);
+  bindAttrib(gl, program, quad);
+  for (const s of queue) {
+    gl.uniform3f(locFeet, s.x, s.y, s.z);
+    gl.uniform2f(locSize, s.w, s.h);
+    gl.uniform2f(locViewOff, s.ox, s.oy);
+    gl.uniform4f(locUv, s.u0, s.v0, s.u1, s.v1);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 }

@@ -1,7 +1,12 @@
-import { moveForwardX, moveForwardZ, moveRightX, moveRightZ } from './camera';
-import { BOB_MS, PLAYER_HEIGHT, PLAYER_HIT, PLAYER_SPEED, PLAYER_WIDTH } from './constants';
-import { moveAxis } from './input';
-import { spawnExplosion } from './particles';
+import {
+  PLAYER_HEIGHT,
+  PLAYER_HIT,
+  PLAYER_SPAWN_X,
+  PLAYER_SPAWN_Y,
+  PLAYER_SPEED,
+} from './constants';
+import { spawnExplosion } from './fx';
+import { isDown, stickX, stickY } from './input';
 import {
   CON_HP_PER_RANK,
   SHOP_REVIVE,
@@ -15,24 +20,26 @@ import {
 } from './stats';
 
 export const player = {
-  // Top-left of the 11×19 sprite, gameplay (x, y) → world (x, 0, y)
-  x: 0,
-  y: 0,
+  // Top-left corner of the player sprite, world-space pixels
+  x: PLAYER_SPAWN_X,
+  y: PLAYER_SPAWN_Y,
   moving: false,
-  bobTime: 0,
+  /** Walk-cycle clock (ms); advances only while moving, resets when idle. */
+  walkTime: 0,
+  // Baseline 100 HP; CON and shop Start HP raise the max
   hp: 100,
   maxHp: 100,
+  /** Remaining freeze (ms). Frozen entities take +25% damage. */
   frozen: 0,
+  /** Remaining yellow-nova speed burst (ms). */
   boost: 0,
+  /** Extra lives remaining this run (from the shop Revive row). */
   lives: 0,
+  /** Remaining i-frames (ms). Incoming damage is ignored while > 0. */
   iframes: 0,
 };
 
 const IFRAME_MS = 2000;
-
-export function playerFeet(): { x: number; z: number } {
-  return { x: player.x + PLAYER_WIDTH / 2, z: player.y + PLAYER_HEIGHT };
-}
 
 export function damagePlayer(amount: number): void {
   if (amount <= 0 || player.hp <= 0 || player.iframes > 0) {
@@ -57,6 +64,7 @@ export function freezePlayer(ms: number): void {
   player.frozen = Math.max(player.frozen, ms);
 }
 
+/** Spend a life to stand back up at full HP with a short i-frame window. */
 export function tryRevive(): boolean {
   if (player.hp > 0 || player.lives <= 0) {
     return false;
@@ -72,10 +80,10 @@ export function tryRevive(): boolean {
 }
 
 export function resetPlayer(): void {
-  player.x = 0;
-  player.y = 0;
+  player.x = PLAYER_SPAWN_X;
+  player.y = PLAYER_SPAWN_Y;
   player.moving = false;
-  player.bobTime = 0;
+  player.walkTime = 0;
   player.maxHp =
     100 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
   player.hp = player.maxHp;
@@ -98,31 +106,49 @@ export function updatePlayer(dt: number): void {
     return;
   }
 
-  const axis = moveAxis();
-  player.moving = axis.x !== 0 || axis.y !== 0;
+  let dx = stickX;
+  let dy = stickY;
+  if (isDown('ArrowLeft') || isDown('KeyA')) {
+    dx -= 1;
+  }
+  if (isDown('ArrowRight') || isDown('KeyD')) {
+    dx += 1;
+  }
+  if (isDown('ArrowUp') || isDown('KeyW')) {
+    dy -= 1;
+  }
+  if (isDown('ArrowDown') || isDown('KeyS')) {
+    dy += 1;
+  }
+
+  const len = Math.hypot(dx, dy);
+  player.moving = len > 0.01;
+  player.walkTime = player.moving ? player.walkTime + dt : 0;
   if (!player.moving) {
     return;
   }
-  player.bobTime += dt;
+  if (len > 1) {
+    dx /= len;
+    dy /= len;
+  }
+
   const speed = PLAYER_SPEED * speedMul(player.boost);
-  player.x += (moveRightX * axis.x + moveForwardX * axis.y) * speed * dt;
-  player.y += (moveRightZ * axis.x + moveForwardZ * axis.y) * speed * dt;
+  // Infinite white map has no solids (`getTileSolid` is always null). Tile-edge
+  // snap is in git history; restore it when walls return (Director's Cut).
+  player.x += dx * speed * dt;
+  player.y += dy * speed * dt;
 }
 
-/** 1 while the sprite is on the "up" bob frame, else 0. */
-export function bobLift(): number {
-  return ((player.bobTime / BOB_MS) | 0) % 2;
-}
-
-export function shadowRadius(): number {
-  return bobLift() ? 8 : 11;
-}
-
-/** 11×11 hitbox aligned to the bottom of the 11×19 sprite. */
+/** 11x11 hitbox aligned to the bottom of the 11x19 sprite (head sticks out above). */
 export function getPlayerHitbox(
   x = player.x,
   y = player.y
-): { x: number; y: number; w: number; h: number } {
+): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
   return {
     x,
     y: y + (PLAYER_HEIGHT - PLAYER_HIT),

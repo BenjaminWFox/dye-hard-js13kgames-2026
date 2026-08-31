@@ -1,85 +1,104 @@
-import { spawnDamageNumber } from './fx';
+import { spawnDamageNumber, spawnExplosion } from './fx';
 import { playHit } from './music';
 import { RAINBOW_COLORS } from './palette';
-import { spawnExplosion } from './particles';
 import { dropEliteLoot, dropLoot } from './pickups';
 import { damagePlayer, getPlayerHitbox } from './player';
-import { measureContentBox, queueSprite, sheetUv } from './sprites';
+import { createSprite, measureContentBox } from './sprites';
 
+/**
+ * Difficulty ladder (easiest → hardest) mapped to sheet cell index within the
+ * 7×9 enemy strip at (11,0). Ladder order: paperclip, pencil, binder clip,
+ * pen, USB stick, stapler, calculator, scissors.
+ */
 const TIER_SHEET_INDEX = [4, 1, 0, 2, 6, 3, 5, 7];
-const ENEMY_OX = 11;
-const CELL_W = 7;
-const CELL_H = 9;
 
 const ENEMY_CAP = 150;
 const MAX_SWARM_ELITES = 4;
 const ELITE_CHANCE = 0.04;
 const ELITE_HP_MUL = 10;
+// Baseline ~2 enemies/sec (surge spawns are a later phase)
 const SPAWN_INTERVAL_MS = 500;
+// Extra distance past the half view diagonal so spawns land just off-screen
 const SPAWN_MARGIN = 16;
+// Past this multiple of the spawn radius an enemy is recycled back to the ring
 const TELEPORT_FACTOR = 1.75;
 const CONTACT_TICK_MS = 500;
+// px/ms — per-type speeds TBD; every type shares this for now (player is 0.05)
 const ENEMY_SPEED = 0.03;
 const BOB_PERIOD_MS = 900;
 
+// Player-centered spatial hash (enemies stay near the camera)
 const GRID_CELL = 22;
 const GRID_W = 64;
 const GRID_H = 64;
 const GRID_SPAN = GRID_W * GRID_CELL;
 
 interface EnemyType {
-  u0: number;
-  v0: number;
-  u1: number;
-  v1: number;
+  canvas: HTMLCanvasElement;
+  /** Content-sized hitbox, relative to the 7×9 cell origin. */
   hitX: number;
   hitY: number;
   hitW: number;
   hitH: number;
+  /** Separation radius: half the larger hitbox dimension. */
   radius: number;
   contactDamage: number;
+  /** Per-type HP is TBD; paperclip=8, +4 per tier. */
   hp: number;
 }
 
 const enemyTypes: EnemyType[] = [];
 
 export interface Enemy {
+  /** Top-left of the 7×9 sprite cell, world px. */
   x: number;
   y: number;
+  /** Index into the difficulty ladder (0 = paperclip). */
   type: number;
   hp: number;
+  /** Knockback velocity, px/ms. */
   kbX: number;
   kbY: number;
   bobTime: number;
   contactTimer: number;
+  /** Remaining freeze (ms). Frozen entities take +25% damage. */
   frozen: number;
+  /** Remaining slow (ms). */
   slowed: number;
+  /** Elite / portal mini-boss. */
   boss: boolean;
+  /** Nova color 0–6, or -1 if this enemy has no nova. */
   color: number;
   maxHp: number;
+  homeX: number;
+  homeY: number;
   cd: number;
   boost: number;
   chasing: boolean;
+  moving: boolean;
 }
 
 export const enemies: Enemy[] = [];
 
+// Tiers allowed to spawn. Starts at paperclips; each portal unlocks the next.
 let unlockedTiers = 1;
+
+/** Director's Cut cutscene still reads this; not drawn in production. */
+export let finalBossSprites: HTMLCanvasElement[] | undefined;
 
 function hitOf(enemy: Enemy): EnemyType {
   return enemyTypes[enemy.type];
 }
 
-export function initEnemyTypes(): void {
-  enemyTypes.length = 0;
+/** Bake one canvas + content hitbox per enemy type. Call once after the sheet loads. */
+export function bakeEnemyTypes(): void {
   for (let tier = 0; tier < TIER_SHEET_INDEX.length; tier++) {
     const sheetIndex = TIER_SHEET_INDEX[tier];
-    const sheetX = ENEMY_OX + (sheetIndex % 4) * CELL_W;
-    const sheetY = sheetIndex < 4 ? 0 : CELL_H;
-    const box = measureContentBox(sheetX, sheetY, CELL_W, CELL_H);
-    const uv = sheetUv(sheetX, sheetY, CELL_W, CELL_H);
+    const sheetX = 11 + (sheetIndex % 4) * 7;
+    const sheetY = sheetIndex < 4 ? 0 : 9;
+    const box = measureContentBox(sheetX, sheetY, 7, 9);
     enemyTypes.push({
-      ...uv,
+      canvas: createSprite(sheetX, sheetY, 7, 9),
       hitX: box.x,
       hitY: box.y,
       hitW: box.w,
@@ -92,6 +111,7 @@ export function initEnemyTypes(): void {
 }
 
 let spawnTimer = 0;
+let lastSpawnRadius = 200;
 let regulars = 0;
 let swarmElites = 0;
 
@@ -118,15 +138,19 @@ function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Ene
     boss: false,
     color: -1,
     maxHp: hp,
+    homeX: 0,
+    homeY: 0,
     cd: 0,
     boost: 0,
     chasing: false,
+    moving: false,
     ...extra,
   };
 }
 
 export function updateEnemies(dt: number, viewWidth: number, viewHeight: number): void {
   const spawnRadius = Math.hypot(viewWidth, viewHeight) / 2 + SPAWN_MARGIN;
+  lastSpawnRadius = spawnRadius;
   const playerHit = getPlayerHitbox();
   const playerCenterX = playerHit.x + playerHit.w / 2;
   const playerCenterY = playerHit.y + playerHit.h / 2;
@@ -182,8 +206,10 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     }
 
     if (enemy.kbX !== 0 || enemy.kbY !== 0) {
-      enemy.x += enemy.kbX * dt;
-      enemy.y += enemy.kbY * dt;
+      const kbx = enemy.kbX * dt;
+      const kby = enemy.kbY * dt;
+      enemy.x += kbx;
+      enemy.y += kby;
       const decay = Math.exp(-dt / 80);
       enemy.kbX *= decay;
       enemy.kbY *= decay;
@@ -199,6 +225,7 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
       enemy.y += (towardY / dist) * step;
     }
 
+    // Contact damage at >10% of the enemy hitbox; max overlap is capped in separate().
     const hitLeft = enemy.x + type.hitX;
     const hitTop = enemy.y + type.hitY;
     const overlapW =
@@ -269,19 +296,22 @@ function pushElite(x: number, y: number, tier: number, color: number, fromPortal
   }
 }
 
+/** Portal death: elite of the newly unlocked tier, at the portal. */
 export function spawnPortalElite(x: number, y: number): void {
   const tier = Math.min(7, unlockedTiers - 1);
   const type = enemyTypes[tier];
   pushElite(x - type.hitX - type.hitW / 2, y - type.hitY - type.hitH / 2, tier, (Math.random() * 7) | 0, true);
 }
 
+/** Dev helper: burst-spawn toward the cap (tree-shaken out of production). */
 export function spawnBurst(count: number): void {
   const playerHit = getPlayerHitbox();
   for (let i = 0; i < count; i++) {
-    trySpawn(playerHit.x + playerHit.w / 2, playerHit.y + playerHit.h / 2, 200);
+    trySpawn(playerHit.x + playerHit.w / 2, playerHit.y + playerHit.h / 2, lastSpawnRadius);
   }
 }
 
+/** A ring position around the player. No wall retry — the map has no solids. */
 function findSpawnSpot(
   type: EnemyType,
   playerCenterX: number,
@@ -294,6 +324,7 @@ function findSpawnSpot(
   return { x: hitLeft - type.hitX, y: hitTop - type.hitY };
 }
 
+// Linked-list spatial hash: gridHead per cell, gridNext per enemy index
 const gridHead = new Int32Array(GRID_W * GRID_H);
 const gridNext = new Int32Array(ENEMY_CAP);
 
@@ -301,6 +332,11 @@ function cellCoord(value: number, origin: number, max: number): number {
   return Math.min(max - 1, Math.max(0, Math.floor((value - origin) / GRID_CELL)));
 }
 
+/**
+ * Pairwise push-apart via the coarse grid: enemies may overlap up to 50%,
+ * never fully — centers stay at least half the combined radii apart.
+ * Enemies vs player: max 40% overlap (minDist = 60% of combined radii).
+ */
 function separate(): void {
   const playerHit = getPlayerHitbox();
   const originX = playerHit.x + playerHit.w / 2 - GRID_SPAN / 2;
@@ -379,41 +415,57 @@ function separate(): void {
   }
 }
 
-function enemyDown(enemy: Enemy): boolean {
-  return enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
-}
-
-export function enemyFeet(enemy: Enemy): { x: number; z: number; scale: number; down: boolean } {
-  const scale = enemy.boss ? 2 : 1;
-  const down = enemyDown(enemy);
-  return {
-    x: enemy.x + CELL_W / 2,
-    z: enemy.y + CELL_H / 2 + (CELL_H * scale) / 2 - (down ? 0 : 1),
-    scale,
-    down,
-  };
-}
-
-export function queueEnemies(): void {
+export function drawEnemies(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  viewWidth: number,
+  viewHeight: number
+): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   for (const enemy of enemies) {
     const type = hitOf(enemy);
-    const feet = enemyFeet(enemy);
-    queueSprite(
-      feet.x,
-      0,
-      feet.z,
-      CELL_W * feet.scale,
-      CELL_H * feet.scale,
-      type
+    const canvas = enemyTypes[enemy.type].canvas;
+    const screenX = Math.floor(enemy.x - cameraX);
+    const screenY = Math.floor(enemy.y - cameraY);
+    const pad = enemy.boss ? canvas.width : 0;
+    if (
+      screenX + canvas.width + pad < 0 ||
+      screenY + canvas.height + pad < 0 ||
+      screenX - pad > viewWidth ||
+      screenY - pad > viewHeight
+    ) {
+      continue;
+    }
+    const down = enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
+    const scale = enemy.boss ? 2 : 1;
+    const dw = canvas.width * scale;
+    const dh = canvas.height * scale;
+    const drawX = screenX - ((dw - canvas.width) >> 1);
+    const drawY = screenY - (down ? 0 : 1) - ((dh - canvas.height) >> 1);
+    const shadowW = (down ? 5 : 3) * scale;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(
+      drawX + type.hitX * scale + ((type.hitW * scale - shadowW) >> 1),
+      drawY + type.hitY * scale + type.hitH * scale,
+      shadowW,
+      1
     );
+    ctx.drawImage(canvas, drawX, drawY, dw, dh);
+    if (enemy.frozen > 0) {
+      ctx.strokeStyle = '#8df';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        screenX + type.hitX + 0.5,
+        screenY + type.hitY - (down ? 0 : 1) + 0.5,
+        type.hitW - 1,
+        type.hitH - 1
+      );
+    }
   }
 }
 
-export function enemyShadow(enemy: Enemy): { x: number; z: number; r: number } {
-  const feet = enemyFeet(enemy);
-  return { x: feet.x, z: feet.z, r: (feet.down ? 5 : 3) * feet.scale };
-}
-
+/** World-space content hitbox (also used by the debug overlay). */
 export function enemyHitbox(enemy: Enemy): { x: number; y: number; w: number; h: number } {
   const type = hitOf(enemy);
   return { x: enemy.x + type.hitX, y: enemy.y + type.hitY, w: type.hitW, h: type.hitH };
@@ -436,6 +488,7 @@ export function crowdControlAt(x: number, y: number, radius: number, freezeMs: n
   }
 }
 
+/** Returns true if the enemy died. Safe to call while reverse-iterating `enemies`. */
 export function hurtEnemyAt(index: number, amount: number): boolean {
   const enemy = enemies[index];
   if (enemy.frozen > 0) {
