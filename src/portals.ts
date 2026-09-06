@@ -1,6 +1,7 @@
 import { PLAYER_SPAWN_X, PLAYER_SPAWN_Y } from './constants';
 import { spawnDamageNumber } from './fx';
 import { playHit } from './music';
+import { RAINBOW_COLORS } from './palette';
 import { createSprite } from './sprites';
 
 export const PORTAL_W = 12;
@@ -12,6 +13,9 @@ const MARKER_PAD = 14;
 /** Half-length of the edge marker triangle (tip to base). */
 const MARKER_LEN = 7;
 const MARKER_HALF = 5;
+const SURFACE = 0xcecece;
+const BODY = 0x747474;
+const STATIC_MS = 80;
 
 interface Portal {
   x: number;
@@ -23,12 +27,57 @@ export const portals: Portal[] = [];
 /** Bit i set = portal i is gone. */
 let portalsGone = 0;
 
-let portalSprite: HTMLCanvasElement;
+/** [color][frame] — light surface tinted; frame 1 mirrors the crackle. */
+let portalSpr: HTMLCanvasElement[][];
 /** Single pending death; portals are far enough that one pulse cannot kill two. */
 let slain: { color: number; x: number; y: number } | null = null;
 
+function tintPortal(base: HTMLCanvasElement, color: number, mirror: boolean): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = PORTAL_W;
+  canvas.height = PORTAL_H;
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  const src = (base.getContext('2d') as CanvasRenderingContext2D).getImageData(
+    0,
+    0,
+    PORTAL_W,
+    PORTAL_H
+  ).data;
+  const img = ctx.createImageData(PORTAL_W, PORTAL_H);
+  const d = img.data;
+  const cr = (color >> 16) & 255;
+  const cg = (color >> 8) & 255;
+  const cb = color & 255;
+  for (let y = 0; y < PORTAL_H; y++) {
+    for (let x = 0; x < PORTAL_W; x++) {
+      const i = (y * PORTAL_W + x) << 2;
+      const a = src[i + 3];
+      if (!a) {
+        continue;
+      }
+      const rgb = (src[i] << 16) | (src[i + 1] << 8) | src[i + 2];
+      const si = (y * PORTAL_W + (mirror ? PORTAL_W - 1 - x : x)) << 2;
+      const light = ((src[si] << 16) | (src[si + 1] << 8) | src[si + 2]) === SURFACE;
+      const tint = light && (rgb === SURFACE || rgb === BODY);
+      d[i] = tint ? cr : src[i];
+      d[i + 1] = tint ? cg : src[i + 1];
+      d[i + 2] = tint ? cb : src[i + 2];
+      d[i + 3] = a;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
 export function bakePortals(): void {
-  portalSprite = createSprite(0, 19, PORTAL_W, PORTAL_H);
+  const base = createSprite(0, 19, PORTAL_W, PORTAL_H);
+  portalSpr = [];
+  for (let i = 0; i < 7; i++) {
+    portalSpr.push([
+      tintPortal(base, RAINBOW_COLORS[i], false),
+      tintPortal(base, RAINBOW_COLORS[i], true),
+    ]);
+  }
 }
 
 export function resetPortals(): void {
@@ -114,7 +163,7 @@ export function drawPortals(
     if (sx + PORTAL_W < 0 || sy + PORTAL_H < 0 || sx > viewWidth || sy > viewHeight) {
       continue;
     }
-    ctx.drawImage(portalSprite, sx, sy);
+    ctx.drawImage(portalSpr[i][((Date.now() / STATIC_MS) | 0) & 1], sx, sy);
     ctx.fillStyle = '#000';
     ctx.fillRect(sx, sy + PORTAL_H + 1, PORTAL_W, 3);
     ctx.fillStyle = '#fff';
@@ -122,7 +171,7 @@ export function drawPortals(
   }
 }
 
-/** Black edge triangles toward off-screen live portals. */
+/** Colored edge triangles toward off-screen live portals. */
 export function drawPortalMarkers(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
@@ -172,9 +221,9 @@ export function drawPortalMarkers(
     ctx.lineTo(bx + px, by + py);
     ctx.lineTo(bx - px, by - py);
     ctx.closePath();
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0');
     ctx.fill();
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.stroke();
   }
