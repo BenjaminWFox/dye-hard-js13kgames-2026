@@ -2,7 +2,7 @@ import { spawnDamageNumber, spawnExplosion } from './fx';
 import { playHit } from './music';
 import { RAINBOW_COLORS } from './palette';
 import { dropEliteLoot, dropLoot } from './pickups';
-import { damagePlayer, getPlayerHitbox } from './player';
+import { damagePlayer, getPlayerHitbox, player } from './player';
 import { createSprite, measureContentBox } from './sprites';
 
 /**
@@ -313,14 +313,14 @@ export function spawnBurst(count: number): void {
   }
 }
 
-/** A ring position around the player. No wall retry — the map has no solids. */
+/** Off-screen ring spot in the front half of the player's heading. */
 function findSpawnSpot(
   type: EnemyType,
   playerCenterX: number,
   playerCenterY: number,
   radius: number
 ): { x: number; y: number } {
-  const angle = Math.random() * Math.PI * 2;
+  const angle = Math.atan2(player.faceY, player.faceX) + (Math.random() - 0.5) * Math.PI;
   const hitLeft = playerCenterX + Math.cos(angle) * radius - type.hitW / 2;
   const hitTop = playerCenterY + Math.sin(angle) * radius - type.hitH / 2;
   return { x: hitLeft - type.hitX, y: hitTop - type.hitY };

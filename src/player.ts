@@ -24,6 +24,9 @@ export const player = {
   x: PLAYER_SPAWN_X,
   y: PLAYER_SPAWN_Y,
   moving: false,
+  /** Last move heading; used to spawn enemies ahead. */
+  faceX: 1,
+  faceY: 0,
   /** Walk-cycle clock (ms); advances only while moving, resets when idle. */
   walkTime: 0,
   // Baseline 100 HP; CON and shop Start HP raise the max
@@ -83,6 +86,8 @@ export function resetPlayer(): void {
   player.x = PLAYER_SPAWN_X;
   player.y = PLAYER_SPAWN_Y;
   player.moving = false;
+  player.faceX = 1;
+  player.faceY = 0;
   player.walkTime = 0;
   player.maxHp =
     100 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
@@ -131,6 +136,8 @@ export function updatePlayer(dt: number): void {
     dx /= len;
     dy /= len;
   }
+  player.faceX = dx;
+  player.faceY = dy;
 
   const speed = PLAYER_SPEED * speedMul(player.boost);
   // Infinite white map has no solids (`getTileSolid` is always null). Tile-edge
