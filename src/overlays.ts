@@ -280,14 +280,20 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
     resolveSlainPortals(viewWidth);
   }
   if (titleDraining) {
-    titleDrainT += dt;
-    while (titleDrainT >= TITLE_DRAIN_MS && titleGrey < TITLE_LETTERS) {
-      titleDrainT -= TITLE_DRAIN_MS;
-      lockNextTitleColor();
-    }
-    if (titleGrey >= TITLE_LETTERS && titleDrainT >= TITLE_DRAIN_MS) {
+    if (mouse.clicked || wasPressed('Enter') || wasPressed('NumpadEnter')) {
       titleDraining = false;
+      mouse.clicked = false;
       beginRun();
+    } else {
+      titleDrainT += dt;
+      while (titleDrainT >= TITLE_DRAIN_MS && titleGrey < TITLE_LETTERS) {
+        titleDrainT -= TITLE_DRAIN_MS;
+        lockNextTitleColor();
+      }
+      if (titleGrey >= TITLE_LETTERS && titleDrainT >= TITLE_DRAIN_MS) {
+        titleDraining = false;
+        beginRun();
+      }
     }
   }
 

@@ -27,9 +27,8 @@ const HORN_SH = 5;
 /** Pixels between body edge and horn base (pivot stays at mid-body). */
 const HORN_GAP = 4;
 
-const STOMP_DAMAGE = 5;
 const NOVA_RADIUS = 66;
-const STOMP_KNOCKBACK = 0.36;
+const STOMP_KNOCKBACK = 0.54;
 
 const FIREBALL_DAMAGE = 8;
 const BOLT_SPEED = 0.18;
@@ -263,7 +262,10 @@ function tickHorn(): void {
     const enemy = enemyHitbox(enemies[i]);
     if (overlaps(box.x, box.y, box.w, box.h, enemy.x, enemy.y, enemy.w, enemy.h)) {
       hornSeen.push(enemies[i]);
-      hurtEnemyAt(i, amount);
+      if (!hurtEnemyAt(i, amount)) {
+        const p = playerCenter();
+        applyKnockback(enemies[i], p.x, p.y, STOMP_KNOCKBACK * 0.5);
+      }
     }
   }
   for (let g = 0; g < 7; g++) {
@@ -352,8 +354,7 @@ function updateNovas(dt: number): void {
     const r = novaRadius(n);
     const c = novaCenter(n);
     const freeze = n.bits & N_BLUE ? FREEZE_MS * n.pwr : 0;
-    const dmg =
-      ((n.bits & N_WHITE ? STOMP_DAMAGE : 0) + (n.bits & N_ORANGE ? FLAME_NOVA_DAMAGE : 0)) * n.pwr;
+    const dmg = (n.bits & N_ORANGE ? FLAME_NOVA_DAMAGE : 0) * n.pwr;
 
     if (n.bits & N_VIOLET) {
       for (let b = bolts.length - 1; b >= 0; b--) {

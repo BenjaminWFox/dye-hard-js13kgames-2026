@@ -14,9 +14,11 @@ const TIER_SHEET_INDEX = [4, 1, 0, 2, 6, 3, 5, 7];
 
 const ENEMY_CAP = 150;
 const MAX_SWARM_ELITES = 4;
+/** Regulars + swarm elites + one portal elite per color. */
+const MAX_LIVING = ENEMY_CAP + MAX_SWARM_ELITES + 8;
 const ELITE_CHANCE = 0.04;
 const ELITE_HP_MUL = 10;
-// Baseline ~2 enemies/sec (surge spawns are a later phase)
+// Pack of 5 + 2 per portal; one pack per interval
 const SPAWN_INTERVAL_MS = 500;
 // Extra distance past the half view diagonal so spawns land just off-screen
 const SPAWN_MARGIN = 16;
@@ -247,10 +249,10 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
 }
 
 function trySpawn(playerCenterX: number, playerCenterY: number, radius: number): void {
-  if (regulars < ENEMY_CAP) {
+  for (let n = 3 + unlockedTiers * 2; n-- && regulars < ENEMY_CAP; ) {
     spawnAt(playerCenterX, playerCenterY, radius, false);
   }
-  if (Math.random() < ELITE_CHANCE && swarmElites < MAX_SWARM_ELITES) {
+  if (unlockedTiers > 1 && Math.random() < ELITE_CHANCE && swarmElites < MAX_SWARM_ELITES) {
     spawnAt(playerCenterX, playerCenterY, radius, true);
   }
 }
@@ -326,7 +328,7 @@ function findSpawnSpot(
 
 // Linked-list spatial hash: gridHead per cell, gridNext per enemy index
 const gridHead = new Int32Array(GRID_W * GRID_H);
-const gridNext = new Int32Array(ENEMY_CAP);
+const gridNext = new Int32Array(MAX_LIVING);
 
 function cellCoord(value: number, origin: number, max: number): number {
   return Math.min(max - 1, Math.max(0, Math.floor((value - origin) / GRID_CELL)));
@@ -343,7 +345,8 @@ function separate(): void {
   const originY = playerHit.y + playerHit.h / 2 - GRID_SPAN / 2;
 
   gridHead.fill(-1);
-  for (let i = 0; i < enemies.length; i++) {
+  const hashed = Math.min(enemies.length, gridNext.length);
+  for (let i = 0; i < hashed; i++) {
     const enemy = enemies[i];
     const type = hitOf(enemy);
     const cell =
@@ -353,7 +356,7 @@ function separate(): void {
     gridHead[cell] = i;
   }
 
-  for (let i = 0; i < enemies.length; i++) {
+  for (let i = 0; i < hashed; i++) {
     const a = enemies[i];
     const typeA = hitOf(a);
     const ax = a.x + typeA.hitX + typeA.hitW / 2;
