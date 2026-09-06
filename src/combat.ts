@@ -18,12 +18,14 @@ import { pwr, STAT_STR, STAT_WIS } from './stats';
 const HORN_MS = 250;
 const HORN_BEATS = 6;
 const HORN_DAMAGE = 10;
-/** Tip reach from the sprite's left/right edge (hitbox, not the 17×9 art). */
+/** Tip reach from the sprite's left/right edge (hitbox, not the 16×5 art). */
 const HORN_LEN = 35;
 /** Visual half-height of the old chevron; still drives hitbox height. */
 const HORN_SPREAD = 8;
-const HORN_SW = 17;
-const HORN_SH = 9;
+const HORN_SW = 16;
+const HORN_SH = 5;
+/** Pixels between body edge and horn base (pivot stays at mid-body). */
+const HORN_GAP = 4;
 
 const STOMP_DAMAGE = 5;
 const NOVA_RADIUS = 66;
@@ -58,7 +60,7 @@ const N_VIOLET = 128;
 let novaCd = 0;
 /** Time remaining in the current 250ms beat. */
 let hornT = 0;
-/** 0–1 = right/left lash, 2–5 = rest. Starts at 5 so the first tick wraps to 0. */
+/** 0 = right, 1 = gap, 2 = left, 3–5 = rest. Starts at 5 so the first tick wraps to 0. */
 let hornBeat = 5;
 /** 1 = right, -1 = left. Starts at -1 so the first fire flips to right. */
 let hornDir = -1;
@@ -91,8 +93,7 @@ interface Nova {
 const bolts: Bolt[] = [];
 const novas: Nova[] = [];
 
-let hornRight: HTMLCanvasElement | undefined;
-let hornLeft: HTMLCanvasElement | undefined;
+let hornSpr: HTMLCanvasElement | undefined;
 
 let viewX = 0;
 let viewY = 0;
@@ -104,14 +105,34 @@ function hornY(): number {
   return player.y + PLAYER_HEIGHT / 2;
 }
 
+function hornOn(): boolean {
+  return hornBeat === 0 || hornBeat === 2;
+}
+
+/** Local ±45° sweep. Right 1:30→4:30, left 7:30→10:30. */
+function hornSweep(): number {
+  return (0.5 - hornT / HORN_MS) * Math.PI / 2;
+}
+
+function hornAng(): number {
+  return (hornDir > 0 ? 0 : Math.PI) + hornSweep();
+}
+
 function hornHitbox(): { x: number; y: number; w: number; h: number } {
-  const h = HORN_SPREAD * 4.5;
-  const w = HORN_LEN * 1.5;
+  const a = hornAng();
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const r = PLAYER_WIDTH / 2 + HORN_GAP;
+  const x0 = player.x + PLAYER_WIDTH / 2 + c * r;
+  const y0 = hornY() + s * r;
+  const h = HORN_SPREAD * 2;
+  const aw = Math.abs(c) * HORN_LEN + Math.abs(s) * h;
+  const ah = Math.abs(s) * HORN_LEN + Math.abs(c) * h;
   return {
-    x: player.x + (hornDir > 0 ? PLAYER_WIDTH : -w),
-    y: hornY() - h / 2,
-    w,
-    h,
+    x: x0 + (c * HORN_LEN - aw) / 2,
+    y: y0 + (s * HORN_LEN - ah) / 2,
+    w: aw,
+    h: ah,
   };
 }
 
@@ -186,11 +207,11 @@ export function updateCombat(
   if (hornT <= 0) {
     hornT += HORN_MS;
     hornBeat = (hornBeat + 1) % HORN_BEATS;
-    if (hornBeat < 2) {
+    if (hornOn()) {
       startHorn();
     }
   }
-  if (hornBeat < 2) {
+  if (hornOn()) {
     tickHorn();
   }
 
@@ -459,16 +480,19 @@ function updateBolts(dt: number): void {
 }
 
 export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number): void {
-  if (hornBeat < 2) {
-    if (!hornRight) {
-      hornRight = createSprite(22, 29, HORN_SW, HORN_SH);
-      hornLeft = createSprite(22, 29, HORN_SW, HORN_SH, true);
+  if (hornOn()) {
+    if (!hornSpr) {
+      hornSpr = createSprite(22, 29, HORN_SW, HORN_SH);
     }
-    ctx.drawImage(
-      (hornDir > 0 ? hornRight : hornLeft) as HTMLCanvasElement,
-      Math.floor(player.x + (hornDir > 0 ? PLAYER_WIDTH : -HORN_SW) - cameraX),
-      Math.floor(hornY() - HORN_SH / 2 - cameraY)
+    ctx.save();
+    ctx.translate(
+      Math.floor(player.x + PLAYER_WIDTH / 2 - cameraX),
+      Math.floor(hornY() - cameraY)
     );
+    ctx.scale(hornDir, 1);
+    ctx.rotate(hornDir * hornSweep());
+    ctx.drawImage(hornSpr, PLAYER_WIDTH / 2 + HORN_GAP, -(HORN_SH >> 1));
+    ctx.restore();
   }
   for (const n of novas) {
     const c = novaCenter(n);
@@ -544,7 +568,7 @@ export function combatDebug(): {
   radius: number;
 } {
   return {
-    horn: hornBeat < 2 ? hornHitbox() : { x: 0, y: 0, w: 0, h: 0 },
+    horn: hornOn() ? hornHitbox() : { x: 0, y: 0, w: 0, h: 0 },
     radius: NOVA_RADIUS,
   };
 }

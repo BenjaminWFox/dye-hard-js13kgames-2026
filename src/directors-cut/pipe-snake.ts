@@ -21,7 +21,7 @@ const WORLD_W = MAP_WIDTH * TILE_SIZE;
 const WORLD_H = MAP_HEIGHT * TILE_SIZE;
 const CENTER_X = WORLD_W / 2;
 const PORTAL_W = 12;
-const PORTAL_H = 23;
+const PORTAL_H = 20;
 const SLOT = WORLD_W / 10;
 
 export function mulberry32(seed: number): () => number {

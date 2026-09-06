@@ -42,7 +42,7 @@ export function takeSlainPortal(): { color: number; x: number; y: number } | nul
   return slain;
 }
 
-/** 12×23 AABB, or null if that edge portal is gone. */
+/** 12×20 AABB, or null if that edge portal is gone. */
 export function portalHitbox(i: number): HitBox | null {
   if (i >= 7 || portalsGone & (1 << i)) {
     return null;
@@ -95,9 +95,9 @@ const CENTER_Y = WORLD_H / 2;
 
 const CAP = { x: 12, y: 29, w: 5, h: 8 };
 const STRAIGHT = { x: 17, y: 29, w: 9, h: 6 };
-const PORTAL = { x: 0, y: 19, w: 12, h: 23 };
+const PORTAL = { x: 0, y: 19, w: 12, h: 20 };
 const PORTAL_W = 12;
-const PORTAL_H = 23;
+const PORTAL_H = 20;
 const PIPE_H = 6;
 
 /** Horizontal straight end-to-end with 1px outline overlap. */

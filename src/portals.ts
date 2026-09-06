@@ -4,7 +4,7 @@ import { playHit } from './music';
 import { createSprite } from './sprites';
 
 export const PORTAL_W = 12;
-export const PORTAL_H = 23;
+export const PORTAL_H = 20;
 export const PORTAL_MAX_HP = 100;
 /** Test ring around spawn. */
 const RING = 500;

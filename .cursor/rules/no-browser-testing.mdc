@@ -1,0 +1,12 @@
+---
+description: Never test or verify the game in a browser; the user tests and reports what to change
+alwaysApply: true
+---
+
+# No Browser Testing
+
+Do not open, navigate, screenshot, click, or otherwise drive a browser (including Cursor browser tools, CDP, or a local URL) to verify changes.
+
+The user tests the game themselves and will relay anything that needs to change. After making a change, stop and wait for their feedback.
+
+This overrides any general instruction to verify web UI in a browser before finishing.

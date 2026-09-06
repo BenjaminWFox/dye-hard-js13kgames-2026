@@ -15,7 +15,7 @@ const MAGNET_RADIUS = PLAYER_WIDTH * 2;
 const PULL_SPEED = PLAYER_SPEED * 1.5;
 const MAGNET_DELAY_MS = 500;
 export const CRYSTAL_W = 4;
-export const CRYSTAL_H = 6;
+export const CRYSTAL_H = 10;
 export const SCRAP_W = 6;
 export const SCRAP_H = 6;
 
@@ -84,7 +84,7 @@ export function resetPickups(): void {
 }
 
 export function bakePickups(): void {
-  crystalSprite = createSprite(12, 29, CRYSTAL_W, CRYSTAL_H);
+  crystalSprite = createSprite(12, 28, CRYSTAL_W, CRYSTAL_H);
   scrapSprite = createSprite(16, 29, SCRAP_W, SCRAP_H);
 }
 
