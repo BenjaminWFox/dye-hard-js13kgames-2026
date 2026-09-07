@@ -1,8 +1,15 @@
 // Director's Cut: pipes, plaza portal, and the opening cutscene live in
 // src/directors-cut/. Production portals are the 500px ROYGBIV ring.
 import { resetCombat } from './combat';
-import { resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
-import { resetExplosions, spawnHudShower, spawnScreenBurst, updateHudShower } from './fx';
+import { enemies, enemyHitbox, resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
+import {
+  resetExplosions,
+  spawnExplosion,
+  spawnHudShower,
+  spawnScreenBurst,
+  updateExplosions,
+  updateHudShower,
+} from './fx';
 import { colorSquareCenter, formatScrap, pauseIconContains } from './hud';
 import { mouse, wasPressed } from './input';
 import { bakeTiles } from './map';
@@ -73,6 +80,11 @@ let revealW = 0;
 let revealH = 0;
 let nextBurst = 0;
 const REVEAL_MS = 1000;
+const MASSACRE_MS = 5;
+const MASSACRE_END_MS = 400;
+
+let massacreT = 0;
+let massacring = false;
 
 export function enqueueOverlay(open: () => void): void {
   overlayQueue.push(open);
@@ -83,7 +95,7 @@ function isReveal(): boolean {
 }
 
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen() || titleDraining || isReveal();
+  return scene !== SCENE_RUN || isUiOpen() || titleDraining || isReveal() || massacring;
 }
 
 function openTitle(): void {
@@ -269,12 +281,43 @@ function resolveSlainPortals(viewWidth: number, viewHeight: number): void {
   spawnPortalElite(slain.x, slain.y);
   beginReveal(slain.color, viewWidth, viewHeight);
   if (allPortalsGone()) {
-    enqueueOverlay(() => openEnd('YOU WIN'));
+    enqueueOverlay(startMassacre);
+  }
+}
+
+function startMassacre(): void {
+  massacring = true;
+  massacreT = 0;
+}
+
+function tickMassacre(dt: number): void {
+  if (!massacring) {
+    return;
+  }
+  updateExplosions(dt);
+  massacreT += dt;
+  while (enemies.length && massacreT >= MASSACRE_MS) {
+    massacreT -= MASSACRE_MS;
+    const i = (Math.random() * enemies.length) | 0;
+    const box = enemyHitbox(enemies[i]);
+    spawnExplosion(
+      box.x + box.w / 2,
+      box.y + box.h / 2,
+      RAINBOW_COLORS[(Math.random() * 7) | 0]
+    );
+    enemies.splice(i, 1);
+    if (!enemies.length) {
+      massacreT = 0;
+    }
+  }
+  if (!enemies.length && massacreT >= MASSACRE_END_MS) {
+    massacring = false;
+    openEnd('YOU WIN');
   }
 }
 
 function pumpOverlays(): void {
-  if (isUiOpen() || isReveal() || scene !== SCENE_RUN) {
+  if (isUiOpen() || isReveal() || massacring || scene !== SCENE_RUN) {
     return;
   }
   const next = overlayQueue.shift();
@@ -303,6 +346,7 @@ export function initOverlays(): void {
 export function resetRun(): void {
   runTime = 0;
   revealColor = -1;
+  massacring = false;
   resetRunStats();
   resetPlayer();
   resetEnemies();
@@ -322,6 +366,7 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
   if (scene === SCENE_RUN) {
     resolveSlainPortals(viewWidth, viewHeight);
     tickReveal(dt);
+    tickMassacre(dt);
   }
   if (titleDraining) {
     if (mouse.clicked || wasPressed('Enter') || wasPressed('NumpadEnter')) {
