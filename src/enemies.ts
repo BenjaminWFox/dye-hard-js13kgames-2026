@@ -13,9 +13,10 @@ import { createSprite, measureContentBox } from './sprites';
 const TIER_SHEET_INDEX = [4, 1, 0, 2, 6, 3, 5, 7];
 
 const ENEMY_CAP = 150;
+const ENEMY_CAP_PER_PORTAL = 50;
 const MAX_SWARM_ELITES = 4;
-/** Regulars + swarm elites + one portal elite per color. */
-const MAX_LIVING = ENEMY_CAP + MAX_SWARM_ELITES + 8;
+/** Base regulars + 50/portal + swarm elites + one portal elite per color. */
+const MAX_LIVING = ENEMY_CAP + ENEMY_CAP_PER_PORTAL * 7 + MAX_SWARM_ELITES + 8;
 const ELITE_CHANCE = 0.04;
 const ELITE_HP_MUL = 10;
 // Pack of 5 + 2 per portal; one pack per interval
@@ -249,7 +250,7 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
 }
 
 function trySpawn(playerCenterX: number, playerCenterY: number, radius: number): void {
-  for (let n = 3 + unlockedTiers * 2; n-- && regulars < ENEMY_CAP; ) {
+  for (let n = 3 + unlockedTiers * 2; n-- && regulars < ENEMY_CAP + (unlockedTiers - 1) * ENEMY_CAP_PER_PORTAL; ) {
     spawnAt(playerCenterX, playerCenterY, radius, false);
   }
   if (unlockedTiers > 1 && Math.random() < ELITE_CHANCE && swarmElites < MAX_SWARM_ELITES) {
@@ -335,8 +336,8 @@ function cellCoord(value: number, origin: number, max: number): number {
 }
 
 /**
- * Pairwise push-apart via the coarse grid: enemies may overlap up to 50%,
- * never fully — centers stay at least half the combined radii apart.
+ * Pairwise push-apart via the coarse grid: centers stay at least the
+ * combined radii apart (edge-to-edge on the larger hitbox axis).
  * Enemies vs player: max 40% overlap (minDist = 60% of combined radii).
  */
 function separate(): void {
@@ -371,7 +372,7 @@ function separate(): void {
           }
           const b = enemies[j];
           const typeB = hitOf(b);
-          const minDist = (typeA.radius + typeB.radius) * 0.5;
+          const minDist = typeA.radius + typeB.radius;
           let dx = b.x + typeB.hitX + typeB.hitW / 2 - ax;
           let dy = b.y + typeB.hitY + typeB.hitH / 2 - ay;
           let dist = Math.hypot(dx, dy);
