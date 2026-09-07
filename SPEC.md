@@ -307,9 +307,11 @@ trailing ranks from older longer saves are ignored.
 
 - Regular enemies **constantly spawn just off-screen around the player**, wherever the
   player is on the map. The map is never empty.
-- **Spawn packs** every **500ms:** **2** regulars before the first portal (half
-  pack); after that **5 + 2 per destroyed portal**. Surge and stretch difficulty
-  modes were never shipped (fallback #2).
+- **Spawn packs** every **500ms** on **landscape** (view width ≥ height): **2**
+  regulars before the first portal (half pack); after that **5 + 2 per destroyed
+  portal**. **Portrait** (view height > width) uses the same packs at **50%**
+  spawn rate (1000ms). Orientation is the playable viewport, not the device.
+  Surge and stretch difficulty modes were never shipped (fallback #2).
 - **Max live cap: 150** regulars, plus **50** per destroyed portal.
 - Enemies that get too far away **teleport back** to the off-screen spawn ring — unless
   the count is near the cap, in which case they **despawn** in favor of fresh spawns.

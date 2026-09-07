@@ -1,3 +1,4 @@
+import { difficultyFor } from './difficulty';
 import { spawnDamageNumber, spawnExplosion } from './fx';
 import { playHit } from './music';
 import { RAINBOW_COLORS } from './palette';
@@ -148,9 +149,10 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
   const playerCenterX = playerHit.x + playerHit.w / 2;
   const playerCenterY = playerHit.y + playerHit.h / 2;
 
+  const spawnInterval = SPAWN_INTERVAL_MS / difficultyFor(viewWidth, viewHeight).spawnRate;
   spawnTimer += dt;
-  while (spawnTimer >= SPAWN_INTERVAL_MS) {
-    spawnTimer -= SPAWN_INTERVAL_MS;
+  while (spawnTimer >= spawnInterval) {
+    spawnTimer -= spawnInterval;
     trySpawn(playerCenterX, playerCenterY, spawnRadius);
   }
 
