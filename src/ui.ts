@@ -78,18 +78,20 @@ function bakeRainbowTitle(text: string, scale: number): HTMLCanvasElement {
 
 function wrap(text: string, maxW: number): string[] {
   const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(' ')) {
-    const next = line ? line + ' ' + word : word;
-    if (line && measureText(next).w > maxW) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
+  for (const paragraph of text.split('\n')) {
+    let line = '';
+    for (const word of paragraph.split(' ')) {
+      const next = line ? line + ' ' + word : word;
+      if (line && measureText(next).w > maxW) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
     }
-  }
-  if (line) {
-    lines.push(line);
+    if (line) {
+      lines.push(line);
+    }
   }
   return lines;
 }
