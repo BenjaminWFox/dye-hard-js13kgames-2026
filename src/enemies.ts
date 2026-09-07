@@ -112,7 +112,6 @@ export function bakeEnemyTypes(): void {
 }
 
 let spawnTimer = 0;
-let lastSpawnRadius = 200;
 let regulars = 0;
 let swarmElites = 0;
 
@@ -151,7 +150,6 @@ function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Ene
 
 export function updateEnemies(dt: number, viewWidth: number, viewHeight: number): void {
   const spawnRadius = Math.hypot(viewWidth, viewHeight) / 2 + SPAWN_MARGIN;
-  lastSpawnRadius = spawnRadius;
   const playerHit = getPlayerHitbox();
   const playerCenterX = playerHit.x + playerHit.w / 2;
   const playerCenterY = playerHit.y + playerHit.h / 2;
@@ -304,14 +302,6 @@ export function spawnPortalElite(x: number, y: number): void {
   const tier = Math.min(7, unlockedTiers - 1);
   const type = enemyTypes[tier];
   pushElite(x - type.hitX - type.hitW / 2, y - type.hitY - type.hitH / 2, tier, (Math.random() * 7) | 0, true);
-}
-
-/** Dev helper: burst-spawn toward the cap (tree-shaken out of production). */
-export function spawnBurst(count: number): void {
-  const playerHit = getPlayerHitbox();
-  for (let i = 0; i < count; i++) {
-    trySpawn(playerHit.x + playerHit.w / 2, playerHit.y + playerHit.h / 2, lastSpawnRadius);
-  }
 }
 
 /** Off-screen ring: front half of heading while moving, full circle when idle. */
@@ -471,7 +461,7 @@ export function drawEnemies(
   }
 }
 
-/** World-space content hitbox (also used by the debug overlay). */
+/** World-space content hitbox. */
 export function enemyHitbox(enemy: Enemy): { x: number; y: number; w: number; h: number } {
   const type = hitOf(enemy);
   return { x: enemy.x + type.hitX, y: enemy.y + type.hitY, w: type.hitW, h: type.hitH };

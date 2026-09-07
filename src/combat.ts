@@ -556,14 +556,3 @@ export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, camer
     ctx.globalAlpha = 1;
   }
 }
-
-/** Debug: live horn AABB during a lash; empty while resting. */
-export function combatDebug(): {
-  horn: { x: number; y: number; w: number; h: number };
-  radius: number;
-} {
-  return {
-    horn: hornOn() ? hornHitbox() : { x: 0, y: 0, w: 0, h: 0 },
-    radius: NOVA_RADIUS,
-  };
-}

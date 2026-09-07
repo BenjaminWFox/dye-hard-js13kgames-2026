@@ -102,19 +102,4 @@ export function initMusic(): void {
   };
   window.addEventListener('pointerdown', unlock);
   window.addEventListener('keydown', unlock);
-  if (import.meta.env.DEV) {
-    Object.assign(window, {
-      musicState: () => ({
-        playing,
-        progress,
-        state: ctx?.state,
-        t: ctx?.currentTime,
-      }),
-      playCrystal,
-      playPowerup,
-      playNova,
-      playHit,
-      playHorn,
-    });
-  }
 }

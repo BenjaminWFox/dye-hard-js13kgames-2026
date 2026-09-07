@@ -31,9 +31,6 @@ import { createWalkSprites, loadSpriteSheet } from './sprites';
 const canvas = document.querySelector('#c') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
-// Loaded only when import.meta.env.DEV — dropped from production entry
-let debug: typeof import('./debug') | undefined;
-
 // The visible slice of the world, in world pixels; recomputed on resize
 let viewWidth = 1;
 let viewHeight = 1;
@@ -72,10 +69,6 @@ async function main(): Promise<void> {
   initInput(canvas);
   initMusic();
   initOverlays();
-  if (import.meta.env.DEV) {
-    debug = await import('./debug');
-    debug.initDebugProps();
-  }
   window.addEventListener('resize', resize);
   resize();
   requestAnimationFrame(gameLoop);
@@ -88,9 +81,6 @@ function gameLoop(time: number): void {
   const dt = Math.min(time - lastTime, 1000 / 30);
   lastTime = time;
 
-  if (debug) {
-    debug.handleDebugKeys();
-  }
   updateOverlays(viewWidth, viewHeight, dt);
   setStickEnabled(scene === SCENE_RUN && !isWorldFrozen());
   if (!isWorldFrozen()) {
@@ -152,19 +142,6 @@ function render(): void {
     drawStick(ctx, true);
   }
   drawOverlays(ctx, viewWidth, viewHeight);
-
-  if (debug) {
-    debug.drawDebugOverlay(
-      ctx,
-      cameraX,
-      cameraY,
-      firstTileX,
-      firstTileY,
-      lastTileX,
-      lastTileY,
-      viewHeight
-    );
-  }
 }
 
 function drawTiles(
