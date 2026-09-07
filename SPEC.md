@@ -41,7 +41,7 @@ These rules govern how code is written for this project.
      2. Cut surge spawns and the stretch difficulty modes. **Never shipped (0 B).**
      3. Drop scrap-shop rows (never the whole shop). **Done for this build:** Luck,
         shop STR/DEX/CON/WIS, XP Gain, Scrap Gain. **Still in:** Start HP, Start Speed,
-        Magnet, Revive.
+        Magnet, Revive, Lvl-up HP, Knockback Dist, Projectiles.
      4. Straighten the procedural pipes — **done, then further cut:** competition
         pipes and the snake walker are Director's Cut (rule 10). Production is the
         500 px portal ring on an infinite white map.
@@ -130,8 +130,8 @@ greyscale run-start state).
 
 ### Run loop
 
-1. **Start:** center spawn, greyscale world, horn + white nova owned, shop Start HP /
-   Start Speed / Magnet / Revive applied.
+1. **Start:** center spawn, greyscale world, horn + white nova owned, all purchased
+   shop ranks applied.
 2. **Play:** move only. Enemies spawn around the player. Crystals and scrap magnet in.
 3. **Level-up:** pause, pick 1 card, resume.
 4. **Portal:** walk to a ring portal, destroy it → portal death sequence (see Enemies),
@@ -141,7 +141,7 @@ greyscale run-start state).
 
 **Overlay queue:** if the XP bar fills during a portal death sequence, the level-up card
 shows **after** the color-unlock overlay, before resuming. Overlays never overlap. After
-the 7th portal overlay, **YOU WIN**.
+the 7th portal overlay, the **win massacre** plays, then **YOU WIN**.
 
 **Pause semantics:** any pause (level-up, pipe overlay, pause menu) freezes **everything** —
 spawns, cooldowns, projectiles, the color wave, and magnet motion.
@@ -173,7 +173,10 @@ overlay then fires (see the portal death sequence).
   sticks out above). Sprite facing art is TBD (movement/horn do not use facing).
 - Movement collision uses that hitbox only.
 - The player **can be frozen** (by blue/indigo on an enemy nova) and, like all frozen
-  entities, takes **+25% damage** while frozen.
+  entities, takes **+25% damage** while frozen. Player stun is a flat **250ms** (not
+  scaled by the incoming freeze duration). A freeze already in progress will not
+  refresh, and after thawing there is a **250ms** grace before another freeze can land.
+  Enemy freeze duration is unchanged.
 
 ### Auto-combat
 
@@ -188,8 +191,8 @@ overlay then fires (see the portal death sequence).
 
   | When | Bits | Effect |
   |------|------|--------|
-  | Fire | Red | 1 fireball at nearest enemy (player) / at the player (boss). Skip the bolt if there is no target. |
-  | Fire | Indigo | 1 frostball, same targeting as red. |
+  | Fire | Red | Player: a volley of fireballs in random directions (**5**, plus shop Projectiles). Boss: 1 fireball at the player. |
+  | Fire | Indigo | Frostballs, same count and targeting as red. |
   | Fire | Yellow | Speed burst on the **caster** (**1s**; **+15%** move speed × nova PWR). |
   | Fire | Green | Heal the **caster** (**8** HP × nova PWR). |
   | Sweep | White | Stomp damage (**5** × nova PWR) + knockback (**0.36** px/ms; bosses take 50%). |
@@ -277,21 +280,26 @@ the first thing to drop, not the whole system.
 
 #### Scrap shop
 
-Each row can be bought **3 ranks**. Prices TBD. Not in the shop: horn/nova kit, nova
+Each row can be bought **3 ranks**. Price is **base × next rank** (rank 1 costs the
+base, rank 2 costs 2×, rank 3 costs 3×). Not in the shop: horn/nova kit, nova
 period, in-run stats, drop-rate rows.
 
-**In this build (4 rows):**
+**In this build (7 rows):**
 
-| Row | 3 ranks |
-|-----|---------|
-| Start HP | Extra max HP at run start (beyond in-run CON). Amounts TBD. |
-| Start Speed | Extra move speed at run start (always-on; stacks with the yellow nova burst). Amounts TBD. |
-| Magnet | Attract radius **+25%** per rank. |
-| Revive | **1/2/3** extra lives per run. Revive **in place**. HP restored and i-frames TBD. |
+| Row | Base | 3 ranks |
+|-----|------|---------|
+| Start HP | 5 | Extra max HP at run start (beyond in-run CON). Amount per rank TBD. |
+| Start Speed | 12 | Extra move speed at run start (always-on; stacks with the yellow nova burst). Amount per rank TBD. |
+| Magnet | 10 | Attract radius **+25%** per rank. |
+| Revive | 25 | **1/2/3** extra lives per run. Revive **in place**. HP restored and i-frames TBD. |
+| Lvl-up HP | 10 | Each level-up heals **20 HP × rank** (capped at max HP), even if no cards remain. |
+| Knockback Dist | 15 | Horn and nova knockback distance **+20%** per rank (after the elite 50% reduction). |
+| Projectiles | 10 | Player fireball / frostball volley **+5** per rank (base **5**). Elite shots stay at 1. |
 
 **Cut from the shop (SPEC fallback #3):** Luck (4th/5th draft cards), STR/DEX/CON/WIS
 starting-stat rows, XP Gain, Scrap Gain. Inherent crystal/scrap drop chances are
-unmodified. Old 11-row localStorage rank arrays are ignored (scrap is still loaded).
+unmodified. Older shorter rank arrays still load (new rows start at 0); extra
+trailing ranks from older longer saves are ignored.
 
 ### Enemies
 
@@ -299,9 +307,10 @@ unmodified. Old 11-row localStorage rank arrays are ignored (scrap is still load
 
 - Regular enemies **constantly spawn just off-screen around the player**, wherever the
   player is on the map. The map is never empty.
-- **Baseline spawn rate: ~2 enemies/sec.** Every **3 minutes**, a **surge**: 10× the
-  spawn rate for **5 seconds**.
-- **Max live cap: 150** enemies.
+- **Spawn packs** every **500ms:** **2** regulars before the first portal (half
+  pack); after that **5 + 2 per destroyed portal**. Surge and stretch difficulty
+  modes were never shipped (fallback #2).
+- **Max live cap: 150** regulars, plus **50** per destroyed portal.
 - Enemies that get too far away **teleport back** to the off-screen spawn ring — unless
   the count is near the cap, in which case they **despawn** in favor of fresh spawns.
 - **Spawn validity:** never on pipes, walls, or water (if water returns). Enemies **can
@@ -337,7 +346,9 @@ A run starts with **paperclips only**; **each destroyed portal unlocks the next 
 
 Office-supply sprites, same 7×9 art as the swarm, drawn at **2×**. No HP bar.
 
-- **10× HP** of their type. Extra crystal/scrap on death (`dropEliteLoot`).
+- **HP** is **5×** their type after the first portal, then **+1× per portal**
+  destroyed after that (**11×** when all 7 are down). Extra crystal/scrap on
+  death (`dropEliteLoot`).
 - **One nova bit** (any of the 7 colors, including yellow/green/violet). The pulse
   **shows in that color**. Radius is **50%** of the player's nova (**33 px**).
   Period and effects use **base** amounts (nova PWR = 1).
@@ -373,8 +384,10 @@ One per color, on a **500 px** circle around spawn. **Red at 12 o'clock**, then
 3. The **color-unlock overlay** shows: color name, power name, what it does (same card
    family as level-up).
 4. If the XP bar filled, the **level-up card** shows next. After the **7th** portal
-   overlay, **YOU WIN**. Then play resumes with that color's nova bit on (or the
-   win screen, if that was the last portal).
+   overlay, the run stays frozen and every living enemy explodes: one **random**
+   enemy every **5ms**, each burst a **random rainbow color**. No loot or hit
+   sounds on those pops. After the last pop, a short linger (~**400ms**), then
+   **YOU WIN**.
 
 #### Final boss
 
@@ -672,8 +685,9 @@ the rainbow colors.
   they match the art exactly); only visual tuning of the cadence remains if desired.
 - XP curve (crystals per level) and inherent crystal/scrap drop chances per enemy type.
 - Combat numbers (placeholders in code, tune in play): horn lash timing/damage, nova
-  period/duration/radius, white/orange/fireball damage, knockback, heal, freeze, yellow
-  burst duration and amount.
+  period/duration/radius, white/orange/fireball damage, knockback, heal, enemy freeze
+  duration, yellow burst duration and amount. Player freeze is **250ms + 250ms grace**
+  (not TBD).
 - Per-rank STR/CON/WIS amounts are in code (20% / +20 HP / 20% nova PWR); whether CON
   heals current HP when max HP grows.
 - Duplicate cards in a single hand: allowed or not.
@@ -682,7 +696,7 @@ the rainbow colors.
 - Regular enemy HP and movement speed per type.
 - Whether the Prismatic Shard remains visible at the plaza during runs — **no**,
   removed (sprite and narrator). Unicorn speaks the second cutscene line.
-- Scrap shop prices; Start HP / Start Speed amounts per rank.
+- Start HP / Start Speed amounts per rank (shop **prices** are in the shop table).
 - Settings / audio toggles on the title screen.
 - Exact per-enemy content hitbox rectangles (measure when wiring combat).
 - Pipe metal-pixel collision: per-pixel mask vs. tight AABB of opaque pixels (byte cost).
