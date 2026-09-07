@@ -4,6 +4,7 @@ import { RAINBOW_COLORS } from './palette';
 import { dropEliteLoot, dropLoot } from './pickups';
 import { damagePlayer, getPlayerHitbox, player } from './player';
 import { createSprite, measureContentBox } from './sprites';
+import { SHOP_KNOCK, shopRanks } from './stats';
 
 /**
  * Difficulty ladder (easiest → hardest) mapped to sheet cell index within the
@@ -529,6 +530,7 @@ export function applyKnockback(enemy: Enemy, fromX: number, fromY: number, speed
   if (enemy.boss) {
     speed *= 0.5;
   }
+  speed *= 1 + 0.2 * shopRanks[SHOP_KNOCK];
   enemy.kbX = (dx / dist) * speed;
   enemy.kbY = (dy / dist) * speed;
 }

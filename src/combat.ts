@@ -13,7 +13,7 @@ import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { damagePlayer, freezePlayer, getPlayerHitbox, player } from './player';
 import { damagePortal, hurtPortalsRing, portalLive, portals, PORTAL_H, PORTAL_W } from './portals';
 import { createSprite } from './sprites';
-import { pwr, STAT_STR, STAT_WIS } from './stats';
+import { pwr, SHOP_BOLTS, shopRanks, STAT_STR, STAT_WIS } from './stats';
 
 const HORN_MS = 250;
 const HORN_BEATS = 6;
@@ -285,7 +285,7 @@ function fireNova(owner: Enemy | null, bits: number): void {
         spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, 0, false, FREEZE_MS * amount);
       }
     } else {
-      for (let n = 5; n--; ) {
+      for (let n = 5 + 5 * shopRanks[SHOP_BOLTS]; n--; ) {
         const ang = Math.random() * Math.PI * 2;
         const tx = c.x + Math.cos(ang);
         const ty = c.y + Math.sin(ang);

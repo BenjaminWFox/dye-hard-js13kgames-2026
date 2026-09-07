@@ -10,7 +10,10 @@ export const SHOP_START_HP = 0;
 export const SHOP_START_SPD = 1;
 export const SHOP_MAGNET = 2;
 export const SHOP_REVIVE = 3;
-export const SHOP_ROWS = 4;
+export const SHOP_LVL_HP = 4;
+export const SHOP_KNOCK = 5;
+export const SHOP_BOLTS = 6;
+export const SHOP_ROWS = 7;
 
 // Per-rank amounts are TBD; placeholders until the tuning phase.
 export const STR_PER_RANK = 0.2;
@@ -36,12 +39,20 @@ export const POWER_UNLOCK_BODY = [
 
 /** In-run ranks. Cap is 5. */
 export const inRunStats = [0, 0, 0, 0];
-/** Start HP, Start Speed, Magnet, Revive. */
-export const shopRanks = [0, 0, 0, 0];
+/** Start HP, Start Speed, Magnet, Revive, Lvl HP, Knockback, Projectiles. */
+export const shopRanks = [0, 0, 0, 0, 0, 0, 0];
 
-const SHOP_NAME = ['+ START HP', '+ START SPD', '+ MAGNET', '+ REVIVE'];
-/** Base cost; actual price is this times next rank. Placeholders until tuning. */
-const SHOP_COST = [12, 12, 10, 25];
+const SHOP_NAME = [
+  '+ START HP',
+  '+ START SPD',
+  '+ MAGNET',
+  '+ REVIVE',
+  'LVL UP +20 HP',
+  '+ KNOCKBACK DIST',
+  '+ PROJECTILES',
+];
+/** Base cost; actual price is this times next rank. */
+const SHOP_COST = [5, 12, 10, 25, 10, 15, 10];
 
 export interface DraftCard {
   id: number;

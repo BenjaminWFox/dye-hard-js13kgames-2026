@@ -22,6 +22,7 @@ import {
   POWER_TITLE,
   POWER_UNLOCK_BODY,
   resetRunStats,
+  SHOP_LVL_HP,
   SHOP_RANK_CAP,
   SHOP_ROWS,
   STAT_CON,
@@ -195,6 +196,10 @@ function closePause(): void {
 }
 
 function openLevelUp(): void {
+  player.hp = Math.min(
+    player.maxHp,
+    player.hp + CON_HP_PER_RANK * shopRanks[SHOP_LVL_HP]
+  );
   hand = dealLevelUpCards();
   if (hand.length === 0) {
     return;
