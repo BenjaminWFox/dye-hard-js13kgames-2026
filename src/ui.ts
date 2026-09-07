@@ -20,6 +20,8 @@ let headingTop = false;
 let labels: HTMLCanvasElement[] = [];
 let bodies: HTMLCanvasElement[] = [];
 let selected = 0;
+let hoverX = -1;
+let hoverY = -1;
 let onPick: ((index: number) => void) | null = null;
 const rects: Rect[] = [];
 let headingX = 0;
@@ -113,7 +115,8 @@ export function openMenu(
   pick: (index: number) => void,
   titleScale = 1,
   titleAtTop = false,
-  subtitle?: string
+  subtitle?: string,
+  startSelected = 0
 ): void {
   layout = LAYOUT_LIST;
   heading = title
@@ -125,7 +128,7 @@ export function openMenu(
   headingTop = titleAtTop;
   labels = items.map((item) => bakeText(item));
   bodies = [];
-  selected = 0;
+  selected = Math.max(0, Math.min(startSelected, items.length - 1));
   onPick = pick;
 }
 
@@ -275,9 +278,13 @@ export function updateUi(viewWidth: number, viewHeight: number): void {
   ) {
     selected = (selected + 1) % n;
   }
-  for (let i = 0; i < rects.length; i++) {
-    if (pointIn(mouse.x, mouse.y, rects[i])) {
-      selected = i;
+  if (mouse.x !== hoverX || mouse.y !== hoverY) {
+    hoverX = mouse.x;
+    hoverY = mouse.y;
+    for (let i = 0; i < rects.length; i++) {
+      if (pointIn(mouse.x, mouse.y, rects[i])) {
+        selected = i;
+      }
     }
   }
   const confirmKey = wasPressed('Enter') || wasPressed('NumpadEnter');

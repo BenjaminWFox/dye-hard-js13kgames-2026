@@ -38,7 +38,7 @@ const FLAME_NOVA_DAMAGE = 6;
 const NOVA_PERIOD = 2000;
 const NOVA_LIFE = 500;
 const SPEED_BURST_MS = 1000;
-const FREEZE_MS = 500;
+const FREEZE_MS = 1000;
 /** 2× the 7px enemy sprite cell — "small impact radius". */
 const FROSTBALL_RADIUS = 14;
 
@@ -162,24 +162,6 @@ function overlaps(
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
-function nearestEnemyCenter(fromX: number, fromY: number): { x: number; y: number } | null {
-  let bestX = 0;
-  let bestY = 0;
-  let bestD = Infinity;
-  for (const enemy of enemies) {
-    const box = enemyHitbox(enemy);
-    const ex = box.x + box.w / 2;
-    const ey = box.y + box.h / 2;
-    const d = Math.hypot(ex - fromX, ey - fromY);
-    if (d < bestD) {
-      bestD = d;
-      bestX = ex;
-      bestY = ey;
-    }
-  }
-  return bestD === Infinity ? null : { x: bestX, y: bestY };
-}
-
 function playerBits(): number {
   let bits = N_WHITE;
   for (let i = 0; i < 7; i++) {
@@ -294,13 +276,25 @@ function fireNova(owner: Enemy | null, bits: number): void {
     caster.boost = SPEED_BURST_MS;
   }
   if (bits & (N_RED | N_INDIGO)) {
-    const t = owner ? playerCenter() : nearestEnemyCenter(c.x, c.y);
-    if (t) {
+    if (owner) {
+      const t = playerCenter();
       if (bits & N_RED) {
-        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FIRE, FIREBALL_DAMAGE * amount, !owner);
+        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FIRE, FIREBALL_DAMAGE * amount, false);
       }
       if (bits & N_INDIGO) {
-        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, 0, !owner, FREEZE_MS * amount);
+        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, 0, false, FREEZE_MS * amount);
+      }
+    } else {
+      for (let n = 5; n--; ) {
+        const ang = Math.random() * Math.PI * 2;
+        const tx = c.x + Math.cos(ang);
+        const ty = c.y + Math.sin(ang);
+        if (bits & N_RED) {
+          spawnBolt(c.x, c.y, tx, ty, BOLT_FIRE, FIREBALL_DAMAGE * amount, true);
+        }
+        if (bits & N_INDIGO) {
+          spawnBolt(c.x, c.y, tx, ty, BOLT_FROST, 0, true, FREEZE_MS * amount);
+        }
       }
     }
   }
@@ -389,7 +383,7 @@ function updateNovas(dt: number): void {
           alive = !hurtEnemyAt(e, dmg);
         }
         if (alive && n.bits & N_WHITE) {
-          applyKnockback(enemy, c.x, c.y, STOMP_KNOCKBACK);
+          applyKnockback(enemy, c.x, c.y, STOMP_KNOCKBACK * 0.75);
         }
       }
       if (dmg) {

@@ -22,8 +22,6 @@ const ELITE_HP_MUL = 10;
 const SPAWN_INTERVAL_MS = 500;
 // Extra distance past the half view diagonal so spawns land just off-screen
 const SPAWN_MARGIN = 16;
-// Past this multiple of the spawn radius an enemy is recycled back to the ring
-const TELEPORT_FACTOR = 1.75;
 const CONTACT_TICK_MS = 500;
 // px/ms — per-type speeds TBD; every type shares this for now (player is 0.05)
 const ENEMY_SPEED = 0.03;
@@ -163,7 +161,8 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     trySpawn(playerCenterX, playerCenterY, spawnRadius);
   }
 
-  const teleportRadius = spawnRadius * TELEPORT_FACTOR;
+  const halfW = viewWidth / 2 + SPAWN_MARGIN;
+  const halfH = viewHeight / 2 + SPAWN_MARGIN;
 
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
@@ -186,24 +185,25 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     const towardX = playerCenterX - centerX;
     const towardY = playerCenterY - centerY;
     const dist = Math.hypot(towardX, towardY);
+    const behind =
+      (centerX - playerCenterX) * player.faceX + (centerY - playerCenterY) * player.faceY < 0;
+    const offscreen =
+      Math.abs(centerX - playerCenterX) > halfW || Math.abs(centerY - playerCenterY) > halfH;
 
-    if (!enemy.boss && dist > teleportRadius) {
-      if (regulars >= ENEMY_CAP - 5) {
-        enemies.splice(i, 1);
-        regulars--;
-      } else {
-        const spot = findSpawnSpot(
-          enemyTypes[enemy.type],
-          playerCenterX,
-          playerCenterY,
-          spawnRadius
-        );
-        enemy.x = spot.x;
-        enemy.y = spot.y;
-        enemy.contactTimer = 0;
-        enemy.kbX = 0;
-        enemy.kbY = 0;
-      }
+    // Recycle off the trailing edge. Always reposition — near-cap despawn
+    // left the front empty because new packs cannot spawn at ENEMY_CAP.
+    if (!enemy.boss && behind && offscreen) {
+      const spot = findSpawnSpot(
+        enemyTypes[enemy.type],
+        playerCenterX,
+        playerCenterY,
+        spawnRadius
+      );
+      enemy.x = spot.x;
+      enemy.y = spot.y;
+      enemy.contactTimer = 0;
+      enemy.kbX = 0;
+      enemy.kbY = 0;
       continue;
     }
 

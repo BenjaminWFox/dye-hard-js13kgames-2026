@@ -22,7 +22,7 @@ export const PLAYER_SPAWN_X = 0;
 export const PLAYER_SPAWN_Y = 0;
 
 // Pixels per millisecond
-export const PLAYER_SPEED = 0.053;
+export const PLAYER_SPEED = 0.042;
 
 // Walk-cycle cadence (§3 Animation): ms per leg-cut frame while moving
 export const WALK_FRAME_MS = 150;

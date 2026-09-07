@@ -134,7 +134,7 @@ function openEnd(title: string): void {
   openMenu(title, ['CONTINUE'], () => openShop(false));
 }
 
-function openShop(fromTitle: boolean): void {
+function openShop(fromTitle: boolean, startSelected = 0): void {
   const items: string[] = [];
   for (let i = 0; i < SHOP_ROWS; i++) {
     items.push(shopLine(i));
@@ -157,12 +157,13 @@ function openShop(fromTitle: boolean): void {
       if (shopRanks[index] < SHOP_RANK_CAP && spendScrap(shopPrice(index))) {
         shopRanks[index]++;
         saveGame();
-        openShop(fromTitle);
+        openShop(fromTitle, index);
       }
     },
     1,
     false,
-    'SCRAP ' + formatScrap(scrap)
+    'SCRAP ' + formatScrap(scrap),
+    startSelected
   );
 }
 

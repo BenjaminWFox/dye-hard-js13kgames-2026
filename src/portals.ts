@@ -6,7 +6,8 @@ import { createSprite } from './sprites';
 
 export const PORTAL_W = 12;
 export const PORTAL_H = 20;
-export const PORTAL_MAX_HP = 100;
+/** Base HP; remaining portals gain this again each time one is destroyed. */
+const PORTAL_HP = 25;
 /** Test ring around spawn. */
 const RING = 500;
 const MARKER_PAD = 14;
@@ -90,7 +91,7 @@ export function resetPortals(): void {
     portals.push({
       x: PLAYER_SPAWN_X + Math.cos(ang) * RING - PORTAL_W / 2,
       y: PLAYER_SPAWN_Y + Math.sin(ang) * RING - PORTAL_H / 2,
-      hp: PORTAL_MAX_HP,
+      hp: PORTAL_HP,
     });
   }
 }
@@ -98,6 +99,15 @@ export function resetPortals(): void {
 /** True if portal `i` is still a target. */
 export function portalLive(i: number): boolean {
   return i < 7 && !(portalsGone & (1 << i)) && !!portals[i];
+}
+
+/** 25 + 25 per destroyed portal. */
+function portalMaxHp(): number {
+  let gone = 0;
+  for (let g = portalsGone; g; g >>= 1) {
+    gone += g & 1;
+  }
+  return PORTAL_HP * (1 + gone);
 }
 
 export function allPortalsGone(): boolean {
@@ -118,6 +128,11 @@ export function damagePortal(i: number, amount: number): boolean {
   }
   p.hp = 0;
   portalsGone |= 1 << i;
+  for (let j = 0; j < 7; j++) {
+    if (portalLive(j)) {
+      portals[j].hp += PORTAL_HP;
+    }
+  }
   slain = { color: i, x: p.x + PORTAL_W / 2, y: p.y + PORTAL_H / 2 };
   return true;
 }
@@ -167,7 +182,7 @@ export function drawPortals(
     ctx.fillStyle = '#000';
     ctx.fillRect(sx, sy + PORTAL_H + 1, PORTAL_W, 3);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(sx + 1, sy + PORTAL_H + 2, Math.round((PORTAL_W - 2) * (p.hp / PORTAL_MAX_HP)), 1);
+    ctx.fillRect(sx + 1, sy + PORTAL_H + 2, Math.round((PORTAL_W - 2) * (p.hp / portalMaxHp())), 1);
   }
 }
 
