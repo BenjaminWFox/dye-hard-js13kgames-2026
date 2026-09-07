@@ -26,6 +26,7 @@ let onPick: ((index: number) => void) | null = null;
 const rects: Rect[] = [];
 let headingX = 0;
 let headingY = 0;
+let headingPlate = false;
 let subX = 0;
 let subY = 0;
 let storyText = '';
@@ -40,6 +41,7 @@ export function isUiOpen(): boolean {
 export function closeUi(): void {
   onPick = null;
   heading = null;
+  headingPlate = false;
   subheading = null;
   labels = [];
   bodies = [];
@@ -124,6 +126,7 @@ export function openMenu(
       ? bakeRainbowTitle(title, titleScale)
       : bakeText(title, '#fff', titleScale)
     : null;
+  headingPlate = false;
   subheading = subtitle ? bakeText(subtitle) : null;
   headingTop = titleAtTop;
   labels = items.map((item) => bakeText(item));
@@ -141,6 +144,7 @@ export function openCards(
   layout = LAYOUT_CARDS;
   const cardScale = 1;
   heading = title ? bakeText(title, titleColor, cardScale) : null;
+  headingPlate = titleColor !== '#fff';
   subheading = null;
   headingTop = false;
   labels = items.map((item) => bakeText(item.title, '#fff', cardScale));
@@ -300,12 +304,17 @@ export function drawUi(ctx: CanvasRenderingContext2D, viewWidth: number, viewHei
   }
   layoutUi(viewWidth, viewHeight);
 
-  if (!headingTop) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  if (!headingTop && !headingPlate) {
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
     ctx.fillRect(0, 0, viewWidth, viewHeight);
   }
 
   if (heading) {
+    if (headingPlate) {
+      const pad = 2;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(headingX - pad, headingY - pad, heading.width + pad * 2, heading.height + pad * 2);
+    }
     ctx.drawImage(heading, headingX, headingY);
   }
   if (subheading) {

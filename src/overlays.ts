@@ -2,7 +2,7 @@
 // src/directors-cut/. Production portals are the 500px ROYGBIV ring.
 import { resetCombat } from './combat';
 import { resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
-import { resetExplosions, spawnHudShower, updateHudShower } from './fx';
+import { resetExplosions, spawnHudShower, spawnScreenBurst, updateHudShower } from './fx';
 import { colorSquareCenter, formatScrap, pauseIconContains } from './hud';
 import { mouse, wasPressed } from './input';
 import { bakeTiles } from './map';
@@ -65,13 +65,24 @@ export const WAVE_SPEED = 0.38;
 export const colorWave = { active: false, x: 0, y: 0, r: 0 };
 
 const overlayQueue: (() => void)[] = [];
+/** Color waiting on the post-kill shade + shower beat; -1 = none. */
+let revealColor = -1;
+let revealT = 0;
+let revealW = 0;
+let revealH = 0;
+let nextBurst = 0;
+const REVEAL_MS = 1000;
 
 export function enqueueOverlay(open: () => void): void {
   overlayQueue.push(open);
 }
 
+function isReveal(): boolean {
+  return revealColor >= 0;
+}
+
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen() || titleDraining;
+  return scene !== SCENE_RUN || isUiOpen() || titleDraining || isReveal();
 }
 
 function openTitle(): void {
@@ -201,7 +212,9 @@ function openLevelUp(): void {
 }
 
 function openUnlock(color: number): void {
-  playPowerup();
+  unlockedColors[color] = true;
+  rebakeAllSprites();
+  bakeTiles();
   const hex = '#' + RAINBOW_COLORS[color].toString(16).padStart(6, '0');
   openCards(
     COLOR_NAMES[color],
@@ -213,27 +226,50 @@ function openUnlock(color: number): void {
   );
 }
 
-function resolveSlainPortals(viewWidth: number): void {
+function beginReveal(color: number, viewWidth: number, viewHeight: number): void {
+  revealColor = color;
+  revealT = 0;
+  revealW = viewWidth;
+  revealH = viewHeight;
+  nextBurst = 0;
+  const sq = colorSquareCenter(color, viewWidth);
+  spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[color]);
+  playPowerup();
+}
+
+function tickReveal(dt: number): void {
+  if (!isReveal()) {
+    return;
+  }
+  revealT += dt;
+  const tint = RAINBOW_COLORS[revealColor];
+  while (nextBurst <= revealT && nextBurst < REVEAL_MS) {
+    spawnScreenBurst(revealW, revealH, tint);
+    nextBurst += 50 + Math.random() * 80;
+  }
+  if (revealT < REVEAL_MS) {
+    return;
+  }
+  const color = revealColor;
+  revealColor = -1;
+  openUnlock(color);
+}
+
+function resolveSlainPortals(viewWidth: number, viewHeight: number): void {
   const slain = takeSlainPortal();
   if (!slain) {
     return;
   }
-  unlockedColors[slain.color] = true;
-  rebakeAllSprites();
-  bakeTiles();
   unlockNextTier();
   spawnPortalElite(slain.x, slain.y);
-  const sq = colorSquareCenter(slain.color, viewWidth);
-  spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[slain.color]);
-  const color = slain.color;
-  enqueueOverlay(() => openUnlock(color));
+  beginReveal(slain.color, viewWidth, viewHeight);
   if (allPortalsGone()) {
     enqueueOverlay(() => openEnd('YOU WIN'));
   }
 }
 
 function pumpOverlays(): void {
-  if (isUiOpen() || scene !== SCENE_RUN) {
+  if (isUiOpen() || isReveal() || scene !== SCENE_RUN) {
     return;
   }
   const next = overlayQueue.shift();
@@ -261,6 +297,7 @@ export function initOverlays(): void {
 
 export function resetRun(): void {
   runTime = 0;
+  revealColor = -1;
   resetRunStats();
   resetPlayer();
   resetEnemies();
@@ -278,7 +315,8 @@ export function resetRun(): void {
 export function updateOverlays(viewWidth: number, viewHeight: number, dt: number): void {
   updateHudShower(dt);
   if (scene === SCENE_RUN) {
-    resolveSlainPortals(viewWidth);
+    resolveSlainPortals(viewWidth, viewHeight);
+    tickReveal(dt);
   }
   if (titleDraining) {
     if (mouse.clicked || wasPressed('Enter') || wasPressed('NumpadEnter')) {
@@ -306,7 +344,7 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
     if (pauseOpen) {
       closePause();
       mouse.clicked = false;
-    } else if (!isUiOpen()) {
+    } else if (!isUiOpen() && !isReveal()) {
       openPause();
       mouse.clicked = false;
     }
@@ -314,7 +352,13 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
   if (isUiOpen()) {
     updateUi(viewWidth, viewHeight);
   }
-  if (scene === SCENE_RUN && !isUiOpen() && player.hp <= 0 && overlayQueue.length === 0) {
+  if (
+    scene === SCENE_RUN &&
+    !isUiOpen() &&
+    !isReveal() &&
+    player.hp <= 0 &&
+    overlayQueue.length === 0
+  ) {
     if (!tryRevive()) {
       openEnd('YOU DIED');
     }

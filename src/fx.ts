@@ -10,6 +10,8 @@ interface Particle {
   size: number;
   /** Screen-space (HUD) particle — no camera, ticks while paused. */
   screen: boolean;
+  /** Gravity, used by the falling HUD shower. */
+  fall: boolean;
 }
 
 interface DamagePop {
@@ -31,7 +33,7 @@ const POP_RISE = 12;
 /**
  * Tintable burst-of-pixels. Used for enemy deaths and the player taking a hit.
  */
-export function spawnExplosion(x: number, y: number, color: number, count = 22): void {
+export function spawnExplosion(x: number, y: number, color: number, count = 22, screen = false): void {
   const css = '#' + color.toString(16).padStart(6, '0');
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -41,12 +43,24 @@ export function spawnExplosion(x: number, y: number, color: number, count = 22):
       y: y + (Math.random() - 0.5) * 8,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: LIFE_MS * (0.65 + Math.random() * 0.45),
+      life: (screen ? 720 : LIFE_MS) * (0.65 + Math.random() * 0.45),
       color: css,
-      size: Math.random() < 0.35 ? 3 : 2,
-      screen: false,
+      size: Math.random() < (screen ? 0.55 : 0.35) ? 3 : 2,
+      screen,
+      fall: false,
     });
   }
+}
+
+/** One screen-space burst at a random point. Ticks during overlays. */
+export function spawnScreenBurst(viewWidth: number, viewHeight: number, color: number): void {
+  spawnExplosion(
+    10 + Math.random() * (viewWidth - 20),
+    10 + Math.random() * (viewHeight - 20),
+    color,
+    28,
+    true
+  );
 }
 
 /** White-on-black floating damage, same look as the scrap HUD counter. */
@@ -64,18 +78,19 @@ export function spawnDamageNumber(x: number, y: number, amount: number): void {
 }
 
 /** Screen-space pixels falling from a HUD color square. */
-export function spawnHudShower(x: number, y: number, color: number, count = 36): void {
+export function spawnHudShower(x: number, y: number, color: number, count = 56): void {
   const css = '#' + color.toString(16).padStart(6, '0');
   for (let i = 0; i < count; i++) {
     particles.push({
-      x: x + (Math.random() - 0.5) * 8,
-      y: y + (Math.random() - 0.5) * 4,
-      vx: (Math.random() - 0.5) * 0.12,
-      vy: 0.04 + Math.random() * 0.14,
-      life: 520 + Math.random() * 380,
+      x: x + (Math.random() - 0.5) * 14,
+      y: y + (Math.random() - 0.5) * 8,
+      vx: (Math.random() - 0.5) * 0.16,
+      vy: 0.05 + Math.random() * 0.18,
+      life: 560 + Math.random() * 420,
       color: css,
-      size: Math.random() < 0.4 ? 3 : 2,
+      size: Math.random() < 0.5 ? 3 : 2,
       screen: true,
+      fall: true,
     });
   }
 }
@@ -107,7 +122,7 @@ function tickParticles(dt: number, screen: boolean): void {
     if (p.screen !== screen) {
       continue;
     }
-    if (p.screen) {
+    if (p.fall) {
       p.vy += 0.00035 * dt;
     }
     p.x += p.vx * dt;
