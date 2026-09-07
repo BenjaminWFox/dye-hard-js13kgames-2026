@@ -6,17 +6,11 @@ interface BakedSprite {
   sourceY: number;
   width: number;
   height: number;
-  flipH: boolean;
-  flipV: boolean;
-  /** Quarter-turns counter-clockwise: 0–3 */
-  rot90: number;
   /** If set, sheet pixels of this rgb are treated as `recolorTo` before palette bake. */
   recolorFrom: number;
   recolorTo: number;
   /** Walk-frame leg cut (§3 Animation): 0 = none, 1 = left leg, 2 = right leg. */
   legCut: number;
-  /** If true, `recolorTo` skips the locked-palette remap (pipe stripes). */
-  keepRecolor: boolean;
 }
 
 let sheet: ImageData;
@@ -37,45 +31,36 @@ export async function loadSpriteSheet(url: string): Promise<void> {
 
 /**
  * Bake a region of the sheet into its own canvas, applying the current palette
- * state (locked rainbow colors render as grey) and optional flips / rotation.
+ * state (locked rainbow colors render as grey).
  * The returned canvas is stable: rebakes redraw into it in place.
  *
- * Transform order: flip in source space, then rotate 90° CCW `rot90` times.
- * Odd rotations swap width/height.
+ * `recolorFrom`/`recolorTo` swap an authored rgb (e.g. flower petals) to a
+ * rainbow color before the locked-palette remap.
  *
- * `recolorFrom`/`recolorTo` swap an authored rgb (e.g. the pipe stripe) to a
- * rainbow color and skip the locked-palette remap, so the stripe stays colored
- * even while the rest of the world is grey.
+ * Flip / rot90 / keepRecolor lived here for Director's Cut pipes — restore
+ * from git when those kits are re-wired.
  */
 export function createSprite(
   sourceX: number,
   sourceY: number,
   width: number,
   height: number,
-  flipH = false,
-  flipV = false,
-  rot90 = 0,
   recolorFrom = 0,
   recolorTo = 0,
-  legCut = 0,
-  keepRecolor = false
+  legCut = 0
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.width = rot90 % 2 === 0 ? width : height;
-  canvas.height = rot90 % 2 === 0 ? height : width;
+  canvas.width = width;
+  canvas.height = height;
   const sprite: BakedSprite = {
     canvas,
     sourceX,
     sourceY,
     width,
     height,
-    flipH,
-    flipV,
-    rot90,
     recolorFrom,
     recolorTo,
     legCut,
-    keepRecolor,
   };
   bake(sprite);
   bakedSprites.push(sprite);
@@ -92,29 +77,12 @@ export function createWalkSprites(
   width: number,
   height: number
 ): HTMLCanvasElement[] {
-  return [0, 1, 2].map((cut) =>
-    createSprite(sourceX, sourceY, width, height, false, false, 0, 0, 0, cut)
-  );
+  return [0, 1, 2].map((cut) => createSprite(sourceX, sourceY, width, height, 0, 0, cut));
 }
 
 function bake(sprite: BakedSprite): void {
-  const {
-    canvas,
-    sourceX,
-    sourceY,
-    width,
-    height,
-    flipH,
-    flipV,
-    rot90,
-    recolorFrom,
-    recolorTo,
-    legCut,
-    keepRecolor,
-  } = sprite;
-  const outWidth = canvas.width;
-  const outHeight = canvas.height;
-  const output = new ImageData(outWidth, outHeight);
+  const { canvas, sourceX, sourceY, width, height, recolorFrom, recolorTo, legCut } = sprite;
+  const output = new ImageData(width, height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       // Leg-cut walk frame: drop the bottom 2 rows of one leg (4 columns off
@@ -130,9 +98,7 @@ function bake(sprite: BakedSprite): void {
           footOutline = y === height - 3;
         }
       }
-      const srcX = sourceX + (flipH ? width - 1 - x : x);
-      const srcY = sourceY + (flipV ? height - 1 - y : y);
-      const srcIndex = (srcY * sheet.width + srcX) * 4;
+      const srcIndex = ((sourceY + y) * sheet.width + sourceX + x) * 4;
       const alpha = sheet.data[srcIndex + 3];
       if (alpha === 0) {
         continue;
@@ -142,32 +108,14 @@ function bake(sprite: BakedSprite): void {
       if (footOutline) {
         rgb = 0;
       } else if (recolorTo && rgb === recolorFrom) {
-        rgb = keepRecolor ? recolorTo : currentColor(recolorTo);
+        rgb = currentColor(recolorTo);
       } else {
         rgb = currentColor(rgb);
       }
-      const r = (rgb >> 16) & 255;
-      const g = (rgb >> 8) & 255;
-      const b = rgb & 255;
-
-      let dx = x;
-      let dy = y;
-      let dw = width;
-      let dh = height;
-      for (let i = 0; i < rot90; i++) {
-        const ndx = dy;
-        const ndy = dw - 1 - dx;
-        dx = ndx;
-        dy = ndy;
-        const tmp = dw;
-        dw = dh;
-        dh = tmp;
-      }
-
-      const outIndex = (dy * outWidth + dx) * 4;
-      output.data[outIndex] = r;
-      output.data[outIndex + 1] = g;
-      output.data[outIndex + 2] = b;
+      const outIndex = (y * width + x) * 4;
+      output.data[outIndex] = (rgb >> 16) & 255;
+      output.data[outIndex + 1] = (rgb >> 8) & 255;
+      output.data[outIndex + 2] = rgb & 255;
       output.data[outIndex + 3] = alpha;
     }
   }

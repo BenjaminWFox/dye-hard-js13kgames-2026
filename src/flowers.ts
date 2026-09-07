@@ -16,17 +16,7 @@ export function bakeFlowers(): void {
   for (let variant = 0; variant < 4; variant++) {
     for (let color = 0; color < 7; color++) {
       flowers.push(
-        createSprite(
-          12 + variant * 7,
-          19,
-          FLOWER_W,
-          FLOWER_H,
-          false,
-          false,
-          0,
-          0xffffff,
-          RAINBOW_COLORS[color]
-        )
+        createSprite(12 + variant * 7, 19, FLOWER_W, FLOWER_H, 0xffffff, RAINBOW_COLORS[color])
       );
     }
   }

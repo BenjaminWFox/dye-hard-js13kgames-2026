@@ -2,6 +2,22 @@
 
 Limit: **13,312 B**. Zip is the scoreboard (`npm run build` → advzip).
 
+## 2026-09-06 — safe golf pass
+
+**Baseline: 12,627 B (94.85% of 13 KB). Headroom 685 B.**
+
+No gameplay / visual changes. Revert any cluster that grows the zip.
+
+| Stage | advzip | Delta |
+|------:|-------:|------:|
+| Baseline | 12627 | — |
+| Slim sprite bake (drop flip/rot/keepRecolor) | 12528 | **-99** |
+| Drop unused Enemy homeX/homeY/moving | 12525 | **-3** |
+| Hoist shared SoundBox pad `i` array | 12499 | **-26** |
+| Map stubs + drop `Z` glyph | 12509 | +10 — **reverted** |
+
+**Then: 12,501 B (93.91% of 13 KB).** Confirm rebuild after revert; cluster-3 measurement was 12,499 (advzip ±2). Saved 126 B. Headroom 811 B.
+
 ## 2026-08-28 — current zip
 
 **advzip: 12,006 B (90.19% of 13 KB). Headroom 1,306 B.**

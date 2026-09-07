@@ -134,37 +134,24 @@ function opposite(dir: number): number {
   return (dir + 2) % 4;
 }
 
+// Flip / rot90 / keepRecolor were dropped from createSprite for the zip.
+// Restore those bake args from git when pipe kits are re-wired.
 function pipeSprite(
   atlas: { x: number; y: number; w: number; h: number },
-  flipH: boolean,
-  flipV: boolean,
-  rot90: number,
   color: number
 ): HTMLCanvasElement {
-  return createSprite(
-    atlas.x,
-    atlas.y,
-    atlas.w,
-    atlas.h,
-    flipH,
-    flipV,
-    rot90,
-    PIPE_STRIPE,
-    color,
-    0,
-    true
-  );
+  return createSprite(atlas.x, atlas.y, atlas.w, atlas.h, PIPE_STRIPE, color);
 }
 
 function bakeKit(color: number): PipeKit {
   const kitCaps: HTMLCanvasElement[] = [];
-  kitCaps[DIR_E] = pipeSprite(CAP, true, false, 0, color);
-  kitCaps[DIR_W] = pipeSprite(CAP, false, false, 0, color);
-  kitCaps[DIR_N] = pipeSprite(CAP, true, false, 1, color);
-  kitCaps[DIR_S] = pipeSprite(CAP, false, false, 1, color);
+  kitCaps[DIR_E] = pipeSprite(CAP, color);
+  kitCaps[DIR_W] = pipeSprite(CAP, color);
+  kitCaps[DIR_N] = pipeSprite(CAP, color);
+  kitCaps[DIR_S] = pipeSprite(CAP, color);
   return {
-    straightH: pipeSprite(STRAIGHT, false, false, 0, color),
-    straightV: pipeSprite(STRAIGHT, false, false, 1, color),
+    straightH: pipeSprite(STRAIGHT, color),
+    straightV: pipeSprite(STRAIGHT, color),
     caps: kitCaps,
   };
 }
