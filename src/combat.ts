@@ -17,7 +17,7 @@ import { pwr, STAT_STR, STAT_WIS } from './stats';
 
 const HORN_MS = 250;
 const HORN_BEATS = 6;
-const HORN_DAMAGE = 10;
+const HORN_DAMAGE = 7;
 /** Tip reach from the sprite's left/right edge (hitbox, not the 16×5 art). */
 const HORN_LEN = 35;
 /** Visual half-height of the old chevron; still drives hitbox height. */
@@ -28,7 +28,7 @@ const HORN_SH = 5;
 const HORN_GAP = 4;
 
 const NOVA_RADIUS = 66;
-const STOMP_KNOCKBACK = 0.54;
+const STOMP_KNOCKBACK = 0.45;
 
 const FIREBALL_DAMAGE = 8;
 const BOLT_SPEED = 0.18;

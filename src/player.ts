@@ -29,11 +29,13 @@ export const player = {
   faceY: 0,
   /** Walk-cycle clock (ms); advances only while moving, resets when idle. */
   walkTime: 0,
-  // Baseline 100 HP; CON and shop Start HP raise the max
-  hp: 100,
-  maxHp: 100,
+  // Baseline 60 HP; CON and shop Start HP raise the max
+  hp: 80,
+  maxHp: 80,
   /** Remaining freeze (ms). Frozen entities take +25% damage. */
   frozen: 0,
+  /** Immunity to a new freeze after thawing (ms). */
+  freezeGrace: 0,
   /** Remaining yellow-nova speed burst (ms). */
   boost: 0,
   /** Extra lives remaining this run (from the shop Revive row). */
@@ -43,6 +45,7 @@ export const player = {
 };
 
 const IFRAME_MS = 2000;
+const FREEZE_GRACE_MS = 250;
 
 export function damagePlayer(amount: number): void {
   if (amount <= 0 || player.hp <= 0 || player.iframes > 0) {
@@ -60,11 +63,11 @@ export function damagePlayer(amount: number): void {
   player.hp = Math.max(0, player.hp - amount);
 }
 
-export function freezePlayer(ms: number): void {
-  if (player.iframes > 0) {
+export function freezePlayer(_ms: number): void {
+  if (player.iframes > 0 || player.frozen > 0 || player.freezeGrace > 0) {
     return;
   }
-  player.frozen = Math.max(player.frozen, ms);
+  player.frozen = 250;
 }
 
 /** Spend a life to stand back up at full HP with a short i-frame window. */
@@ -75,6 +78,7 @@ export function tryRevive(): boolean {
   player.lives--;
   player.hp = player.maxHp;
   player.frozen = 0;
+  player.freezeGrace = 0;
   player.iframes = IFRAME_MS;
   const hit = getPlayerHitbox();
   spawnExplosion(hit.x + hit.w / 2, hit.y + hit.h / 2, 0xffffff, 16);
@@ -90,9 +94,10 @@ export function resetPlayer(): void {
   player.faceY = 0;
   player.walkTime = 0;
   player.maxHp =
-    100 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
+    80 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
   player.hp = player.maxHp;
   player.frozen = 0;
+  player.freezeGrace = 0;
   player.boost = 0;
   player.lives = shopRanks[SHOP_REVIVE];
   player.iframes = 0;
@@ -105,8 +110,14 @@ export function updatePlayer(dt: number): void {
   if (player.boost > 0) {
     player.boost = Math.max(0, player.boost - dt);
   }
+  if (player.freezeGrace > 0) {
+    player.freezeGrace = Math.max(0, player.freezeGrace - dt);
+  }
   if (player.frozen > 0) {
     player.frozen = Math.max(0, player.frozen - dt);
+    if (player.frozen <= 0) {
+      player.freezeGrace = FREEZE_GRACE_MS;
+    }
     player.moving = false;
     return;
   }

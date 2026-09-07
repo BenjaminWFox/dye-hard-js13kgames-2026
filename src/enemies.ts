@@ -18,14 +18,13 @@ const MAX_SWARM_ELITES = 4;
 /** Base regulars + 50/portal + swarm elites + one portal elite per color. */
 const MAX_LIVING = ENEMY_CAP + ENEMY_CAP_PER_PORTAL * 7 + MAX_SWARM_ELITES + 8;
 const ELITE_CHANCE = 0.04;
-const ELITE_HP_MUL = 10;
-// Pack of 5 + 2 per portal; one pack per interval
+// Pack of 5 + 2 per portal; half pack before the first portal
 const SPAWN_INTERVAL_MS = 500;
 // Extra distance past the half view diagonal so spawns land just off-screen
 const SPAWN_MARGIN = 16;
 const CONTACT_TICK_MS = 500;
-// px/ms — per-type speeds TBD; every type shares this for now (player is 0.05)
-const ENEMY_SPEED = 0.03;
+// px/ms — per-type speeds TBD; every type shares this for now (player is 0.042)
+const ENEMY_SPEED = 0.032;
 const BOB_PERIOD_MS = 900;
 
 // Player-centered spatial hash (enemies stay near the camera)
@@ -44,7 +43,7 @@ interface EnemyType {
   /** Separation radius: half the larger hitbox dimension. */
   radius: number;
   contactDamage: number;
-  /** Per-type HP is TBD; paperclip=8, +4 per tier. */
+  /** Per-type HP; paperclip=16, +6 per tier. */
   hp: number;
 }
 
@@ -102,8 +101,8 @@ export function bakeEnemyTypes(): void {
       hitW: box.w,
       hitH: box.h,
       radius: Math.max(box.w, box.h) / 2,
-      contactDamage: tier + 1,
-      hp: 8 + tier * 4,
+      contactDamage: (tier + 1) * 3,
+      hp: 10 + tier * 5,
     });
   }
 }
@@ -242,7 +241,10 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
 }
 
 function trySpawn(playerCenterX: number, playerCenterY: number, radius: number): void {
-  for (let n = 3 + unlockedTiers * 2; n-- && regulars < ENEMY_CAP + (unlockedTiers - 1) * ENEMY_CAP_PER_PORTAL; ) {
+  for (
+    let n = unlockedTiers > 1 ? 3 + unlockedTiers * 2 : 2;
+    n-- && regulars < ENEMY_CAP + (unlockedTiers - 1) * ENEMY_CAP_PER_PORTAL;
+  ) {
     spawnAt(playerCenterX, playerCenterY, radius, false);
   }
   if (unlockedTiers > 1 && Math.random() < ELITE_CHANCE && swarmElites < MAX_SWARM_ELITES) {
@@ -274,7 +276,8 @@ function spawnAt(
 
 function pushElite(x: number, y: number, tier: number, color: number, fromPortal: boolean): void {
   const type = enemyTypes[tier];
-  const hp = type.hp * ELITE_HP_MUL;
+  // 5× after the first portal, +1× per portal after that (11× at 7).
+  const hp = type.hp * (3 + unlockedTiers);
   enemies.push(
     makeEnemy(x, y, hp, {
       type: tier,
