@@ -45,12 +45,14 @@ export function xpNeeded(): number {
   return 5 * level;
 }
 
-export function addXp(amount: number): void {
+export function addXp(amount: number, awardLevelUp = true): void {
   xp += amount;
   while (xp >= xpNeeded()) {
     xp -= xpNeeded();
     level++;
-    pendingLevelUps++;
+    if (awardLevelUp) {
+      pendingLevelUps++;
+    }
   }
 }
 
@@ -123,7 +125,8 @@ export function dropLoot(x: number, y: number): void {
   }
 }
 
-export function updatePickups(dt: number): void {
+/** `vacuum` sucks every pickup to the player (end-of-run massacre). */
+export function updatePickups(dt: number, vacuum = false): void {
   const hit = getPlayerHitbox();
   const cx = hit.x + hit.w / 2;
   const cy = hit.y + hit.h / 2;
@@ -132,7 +135,7 @@ export function updatePickups(dt: number): void {
 
   for (let i = pickups.length - 1; i >= 0; i--) {
     const p = pickups[i];
-    if (p.delay > 0) {
+    if (!vacuum && p.delay > 0) {
       p.delay -= dt;
       continue;
     }
@@ -143,19 +146,20 @@ export function updatePickups(dt: number): void {
     const dx = cx - pcx;
     const dy = cy - pcy;
     const dist = Math.hypot(dx, dy);
+    const inRange = vacuum || dist < magnet;
 
-    if (dist < magnet && dist > 0.01) {
-      const step = Math.min(pull, dist);
+    if (inRange && dist > 0.01) {
+      const step = vacuum ? Math.min(dist, Math.max(pull * 6, dist * (dt / 280))) : Math.min(pull, dist);
       p.x += (dx / dist) * step;
       p.y += (dy / dist) * step;
     }
 
     if (p.x < hit.x + hit.w && p.x + pw > hit.x && p.y < hit.y + hit.h && p.y + ph > hit.y) {
       if (p.kind === PICKUP_CRYSTAL) {
-        addXp(1);
+        addXp(1, !vacuum);
         playCrystal();
       } else {
-        scrap += 1;
+        scrap += 1 + ((Math.random() * 4) | 0);
       }
       pickups.splice(i, 1);
     }

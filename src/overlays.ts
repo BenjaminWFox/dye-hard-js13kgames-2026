@@ -15,7 +15,7 @@ import { mouse, wasPressed } from './input';
 import { bakeTiles } from './map';
 import { playPowerup } from './music';
 import { RAINBOW_COLORS, unlockedColors } from './palette';
-import { consumeLevelUp, resetPickups, scrap, spendScrap } from './pickups';
+import { consumeLevelUp, pickups, resetPickups, scrap, spendScrap, updatePickups } from './pickups';
 import { player, resetPlayer, tryRevive } from './player';
 import { allPortalsGone, resetPortals, takeSlainPortal } from './portals';
 import { loadSave, saveGame } from './save';
@@ -295,6 +295,7 @@ function tickMassacre(dt: number): void {
     return;
   }
   updateExplosions(dt);
+  updatePickups(dt, true);
   massacreT += dt;
   while (enemies.length && massacreT >= MASSACRE_MS) {
     massacreT -= MASSACRE_MS;
@@ -310,7 +311,7 @@ function tickMassacre(dt: number): void {
       massacreT = 0;
     }
   }
-  if (!enemies.length && massacreT >= MASSACRE_END_MS) {
+  if (!enemies.length && !pickups.length && massacreT >= MASSACRE_END_MS) {
     massacring = false;
     openEnd('YOU WIN');
   }

@@ -1,6 +1,7 @@
 import { PLAYER_HEIGHT } from './constants';
 import { bakeText, drawText, FONT_GAP, FONT_H, FONT_W, measureText } from './font';
 import { mouse, wasPressed } from './input';
+import { playCrystal } from './music';
 import { currentColor, RAINBOW_COLORS } from './palette';
 
 const LAYOUT_LIST = 0;
@@ -296,6 +297,7 @@ export function updateUi(viewWidth: number, viewHeight: number): void {
   const confirmKey = wasPressed('Enter') || wasPressed('NumpadEnter');
   const confirmClick = mouse.clicked && pointIn(mouse.x, mouse.y, rects[selected]);
   if (confirmKey || confirmClick) {
+    playCrystal();
     onPick(selected);
   }
 }

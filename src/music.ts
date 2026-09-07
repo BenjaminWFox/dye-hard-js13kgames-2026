@@ -84,7 +84,19 @@ export function playNova(): void {
   playSfx(NOVA_FIRE);
 }
 
+const HIT_WIN = 250;
+const HIT_MAX = 5;
+const hitTimes: number[] = [];
+
 export function playHit(): void {
+  const t = performance.now();
+  while (hitTimes.length && t - hitTimes[0] >= HIT_WIN) {
+    hitTimes.shift();
+  }
+  if (hitTimes.length >= HIT_MAX) {
+    return;
+  }
+  hitTimes.push(t);
   playSfx(ENEMY_HIT);
 }
 

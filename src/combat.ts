@@ -13,11 +13,12 @@ import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { damagePlayer, freezePlayer, getPlayerHitbox, player } from './player';
 import { damagePortal, hurtPortalsRing, portalLive, portals, PORTAL_H, PORTAL_W } from './portals';
 import { createSprite } from './sprites';
-import { pwr, SHOP_BOLTS, shopRanks, STAT_STR, STAT_WIS } from './stats';
+import { pwr, SHOP_BOLTS, shopRanks, STAT_STR, STAT_WIS, totalStat } from './stats';
 
 const HORN_MS = 250;
 const HORN_BEATS = 6;
-const HORN_DAMAGE = 7;
+const HORN_DAMAGE = 8;
+const HORN_PER_RANK = 4;
 /** Tip reach from the sprite's left/right edge (hitbox, not the 16×5 art). */
 const HORN_LEN = 35;
 /** Visual half-height of the old chevron; still drives hitbox height. */
@@ -30,11 +31,11 @@ const HORN_GAP = 4;
 const NOVA_RADIUS = 66;
 const STOMP_KNOCKBACK = 0.45;
 
-const FIREBALL_DAMAGE = 8;
+const FIREBALL_DAMAGE = 15;
 const BOLT_SPEED = 0.18;
 const BOLT_SIZE = 4;
 
-const FLAME_NOVA_DAMAGE = 6;
+const FLAME_NOVA_DAMAGE = 5;
 const NOVA_PERIOD = 2000;
 const NOVA_LIFE = 500;
 const SPEED_BURST_MS = 1000;
@@ -42,7 +43,8 @@ const FREEZE_MS = 1000;
 /** 2× the 7px enemy sprite cell — "small impact radius". */
 const FROSTBALL_RADIUS = 14;
 
-const HEAL_AMOUNT = 8;
+const HEAL_AMOUNT = 10;
+const FROSTBALL_DAMAGE = 5;
 
 const BOLT_FIRE = 0;
 const BOLT_FROST = 1;
@@ -236,7 +238,7 @@ function startHorn(): void {
 
 function tickHorn(): void {
   const box = hornHitbox();
-  const amount = HORN_DAMAGE * pwr(STAT_STR);
+  const amount = HORN_DAMAGE + HORN_PER_RANK * totalStat(STAT_STR);
   for (let i = enemies.length - 1; i >= 0; i--) {
     if (hornSeen.indexOf(enemies[i]) >= 0) {
       continue;
@@ -282,7 +284,7 @@ function fireNova(owner: Enemy | null, bits: number): void {
         spawnBolt(c.x, c.y, t.x, t.y, BOLT_FIRE, FIREBALL_DAMAGE * amount, false);
       }
       if (bits & N_INDIGO) {
-        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, 0, false, FREEZE_MS * amount);
+        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, FROSTBALL_DAMAGE * amount, false, FREEZE_MS * amount);
       }
     } else {
       for (let n = 5 + 5 * shopRanks[SHOP_BOLTS]; n--; ) {
@@ -293,7 +295,7 @@ function fireNova(owner: Enemy | null, bits: number): void {
           spawnBolt(c.x, c.y, tx, ty, BOLT_FIRE, FIREBALL_DAMAGE * amount, true);
         }
         if (bits & N_INDIGO) {
-          spawnBolt(c.x, c.y, tx, ty, BOLT_FROST, 0, true, FREEZE_MS * amount);
+          spawnBolt(c.x, c.y, tx, ty, BOLT_FROST, FROSTBALL_DAMAGE * amount, true, FREEZE_MS * amount);
         }
       }
     }

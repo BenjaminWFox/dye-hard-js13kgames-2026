@@ -19,9 +19,9 @@ export const SHOP_ROWS = 7;
 export const STR_PER_RANK = 0.2;
 export const CON_HP_PER_RANK = 20;
 /** Yellow nova burst: added to move speed while the boost timer is up. */
-export const SPEED_PER_RANK = 0.15;
-export const START_HP_PER_RANK = 15;
-export const START_SPD_PER_RANK = 0.1;
+export const SPEED_PER_RANK = 0.5;
+export const START_HP_PER_RANK = 20;
+export const START_SPD_PER_RANK = 0.2;
 
 const STAT_TITLE = ['STR', 'DEX', 'CON', 'WIS'];
 const STAT_BODY = ['+ HORN DMG', '- DMG TAKEN', '+ MAX HP', '+ NOVA PWR'];
@@ -52,7 +52,7 @@ const SHOP_NAME = [
   '+ PROJECTILES',
 ];
 /** Base cost; actual price is this times next rank. */
-const SHOP_COST = [5, 12, 10, 25, 10, 15, 10];
+const SHOP_COST = [5, 12, 10, 20, 10, 15, 10];
 
 export interface DraftCard {
   id: number;

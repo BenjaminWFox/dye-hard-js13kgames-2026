@@ -25,7 +25,7 @@ const SPAWN_INTERVAL_MS = 500;
 // Extra distance past the half view diagonal so spawns land just off-screen
 const SPAWN_MARGIN = 16;
 const CONTACT_TICK_MS = 500;
-// px/ms — per-type speeds TBD; every type shares this for now (player is 0.042)
+// px/ms — per-type speeds TBD; every type shares this for now (player is 0.046)
 const ENEMY_SPEED = 0.032;
 const BOB_PERIOD_MS = 900;
 
@@ -45,7 +45,7 @@ interface EnemyType {
   /** Separation radius: half the larger hitbox dimension. */
   radius: number;
   contactDamage: number;
-  /** Per-type HP; paperclip=16, +6 per tier. */
+  /** Per-type HP; paperclip=8, +8 per tier. */
   hp: number;
 }
 
@@ -104,7 +104,7 @@ export function bakeEnemyTypes(): void {
       hitH: box.h,
       radius: Math.max(box.w, box.h) / 2,
       contactDamage: (tier + 1) * 3,
-      hp: 10 + tier * 5,
+      hp: 8 + tier * 8,
     });
   }
 }

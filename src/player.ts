@@ -29,9 +29,9 @@ export const player = {
   faceY: 0,
   /** Walk-cycle clock (ms); advances only while moving, resets when idle. */
   walkTime: 0,
-  // Baseline 60 HP; CON and shop Start HP raise the max
-  hp: 80,
-  maxHp: 80,
+  // Baseline 100 HP; CON and shop Start HP raise the max
+  hp: 100,
+  maxHp: 100,
   /** Remaining freeze (ms). Frozen entities take +25% damage. */
   frozen: 0,
   /** Immunity to a new freeze after thawing (ms). */
@@ -94,7 +94,7 @@ export function resetPlayer(): void {
   player.faceY = 0;
   player.walkTime = 0;
   player.maxHp =
-    80 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
+    100 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
   player.hp = player.maxHp;
   player.frozen = 0;
   player.freezeGrace = 0;
@@ -143,10 +143,8 @@ export function updatePlayer(dt: number): void {
   if (!player.moving) {
     return;
   }
-  if (len > 1) {
-    dx /= len;
-    dy /= len;
-  }
+  dx /= len;
+  dy /= len;
   player.faceX = dx;
   player.faceY = dy;
 
