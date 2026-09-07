@@ -21,7 +21,7 @@ export const START_HP_PER_RANK = 15;
 export const START_SPD_PER_RANK = 0.1;
 
 const STAT_TITLE = ['STR', 'DEX', 'CON', 'WIS'];
-const STAT_BODY = ['HORN DMG', 'LESS HITS', 'MAX HP', 'NOVA PWR'];
+const STAT_BODY = ['+ HORN DMG', '- DMG TAKEN', '+ MAX HP', '+ NOVA PWR'];
 export const COLOR_NAMES = ['RED', 'ORANGE', 'YELLOW', 'GREEN', 'BLUE', 'INDIGO', 'VIOLET'];
 export const POWER_TITLE = ['FIREBALL', 'FLAME', 'SPEED', 'HEAL', 'FROST', 'FROSTBALL', 'WARD'];
 export const POWER_UNLOCK_BODY = [
@@ -39,7 +39,7 @@ export const inRunStats = [0, 0, 0, 0];
 /** Start HP, Start Speed, Magnet, Revive. */
 export const shopRanks = [0, 0, 0, 0];
 
-const SHOP_NAME = ['START HP', 'START SPD', 'MAGNET', 'REVIVE'];
+const SHOP_NAME = ['+ START HP', '+ START SPD', '+ MAGNET', '+ REVIVE'];
 /** Base cost; actual price is this times next rank. Placeholders until tuning. */
 const SHOP_COST = [12, 12, 10, 25];
 
