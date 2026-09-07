@@ -37,7 +37,7 @@ const BOLT_SIZE = 4;
 
 const FLAME_NOVA_DAMAGE = 5;
 const NOVA_PERIOD = 2000;
-const NOVA_LIFE = 500;
+const NOVA_LIFE = 1000;
 const SPEED_BURST_MS = 1000;
 const FREEZE_MS = 1000;
 /** 2× the 7px enemy sprite cell — "small impact radius". */
@@ -148,7 +148,11 @@ function enemyCenter(enemy: Enemy): { x: number; y: number } {
 }
 
 function novaCenter(n: Nova): { x: number; y: number } {
-  return n.owner ? enemyCenter(n.owner) : playerCenter();
+  if (n.owner) {
+    return enemyCenter(n.owner);
+  }
+  const hit = getPlayerHitbox();
+  return { x: hit.x + hit.w / 2, y: player.y + PLAYER_HEIGHT - 2};
 }
 
 function overlaps(
@@ -171,6 +175,8 @@ function playerBits(): number {
       bits |= 2 << i;
     }
   }
+  // STUB: all 7 nova colors from run start. Delete this line to restore unlock gating.
+  // return bits | 0xfe;
   return bits;
 }
 
@@ -288,14 +294,30 @@ function fireNova(owner: Enemy | null, bits: number): void {
       }
     } else {
       for (let n = 5 + 5 * shopRanks[SHOP_BOLTS]; n--; ) {
-        const ang = Math.random() * Math.PI * 2;
-        const tx = c.x + Math.cos(ang);
-        const ty = c.y + Math.sin(ang);
         if (bits & N_RED) {
-          spawnBolt(c.x, c.y, tx, ty, BOLT_FIRE, FIREBALL_DAMAGE * amount, true);
+          const ang = Math.random() * Math.PI * 2;
+          spawnBolt(
+            c.x,
+            c.y,
+            c.x + Math.cos(ang),
+            c.y + Math.sin(ang),
+            BOLT_FIRE,
+            FIREBALL_DAMAGE * amount,
+            true
+          );
         }
         if (bits & N_INDIGO) {
-          spawnBolt(c.x, c.y, tx, ty, BOLT_FROST, FROSTBALL_DAMAGE * amount, true, FREEZE_MS * amount);
+          const ang = Math.random() * Math.PI * 2;
+          spawnBolt(
+            c.x,
+            c.y,
+            c.x + Math.cos(ang),
+            c.y + Math.sin(ang),
+            BOLT_FROST,
+            FROSTBALL_DAMAGE * amount,
+            true,
+            FREEZE_MS * amount
+          );
         }
       }
     }
@@ -476,21 +498,7 @@ function updateBolts(dt: number): void {
   }
 }
 
-export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number): void {
-  if (hornOn()) {
-    if (!hornSpr) {
-      hornSpr = createSprite(22, 29, HORN_SW, HORN_SH);
-    }
-    ctx.save();
-    ctx.translate(
-      Math.floor(player.x + PLAYER_WIDTH / 2 - cameraX),
-      Math.floor(hornY() - cameraY)
-    );
-    ctx.scale(hornDir, 1);
-    ctx.rotate(hornDir * hornSweep());
-    ctx.drawImage(hornSpr, PLAYER_WIDTH / 2 + HORN_GAP, -(HORN_SH >> 1));
-    ctx.restore();
-  }
+export function drawNovas(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number): void {
   for (const n of novas) {
     const c = novaCenter(n);
     const r = novaRadius(n);
@@ -524,7 +532,7 @@ export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, camer
       }
     }
     for (let i = 0; i < cols.length; i++) {
-      const band = r - 3 - (cols.length - 1 - i);
+      const band = r - 3 - (cols.length - 1 - i) * 2;
       if (band < 1) {
         continue;
       }
@@ -533,6 +541,23 @@ export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, camer
       ctx.arc(cx, cy, band, 0, Math.PI * 2);
       ctx.stroke();
     }
+  }
+}
+
+export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number): void {
+  if (hornOn()) {
+    if (!hornSpr) {
+      hornSpr = createSprite(22, 29, HORN_SW, HORN_SH);
+    }
+    ctx.save();
+    ctx.translate(
+      Math.floor(player.x + PLAYER_WIDTH / 2 - cameraX),
+      Math.floor(hornY() - cameraY)
+    );
+    ctx.scale(hornDir, 1);
+    ctx.rotate(hornDir * hornSweep());
+    ctx.drawImage(hornSpr, PLAYER_WIDTH / 2 + HORN_GAP, -(HORN_SH >> 1));
+    ctx.restore();
   }
 
   const hw = (BOLT_SIZE / 2) | 0;

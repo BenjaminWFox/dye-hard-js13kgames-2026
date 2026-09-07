@@ -1,4 +1,4 @@
-import { drawCombat, updateCombat } from './combat';
+import { drawCombat, drawNovas, updateCombat } from './combat';
 import {
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
@@ -118,6 +118,7 @@ function render(): void {
 
   const playerScreenX = Math.floor(player.x - cameraX);
   const playerScreenY = Math.floor(player.y - cameraY);
+  drawNovas(ctx, cameraX, cameraY);
   if (player.iframes <= 0 || ((player.iframes / 80) | 0) % 2 === 0) {
     const frame = player.moving ? 1 + (((player.walkTime / WALK_FRAME_MS) | 0) % 2) : 0;
     ctx.drawImage(playerSprites[frame], playerScreenX, playerScreenY);
