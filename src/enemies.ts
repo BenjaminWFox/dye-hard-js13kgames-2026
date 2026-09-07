@@ -191,9 +191,9 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     const offscreen =
       Math.abs(centerX - playerCenterX) > halfW || Math.abs(centerY - playerCenterY) > halfH;
 
-    // Recycle off the trailing edge. Always reposition — near-cap despawn
-    // left the front empty because new packs cannot spawn at ENEMY_CAP.
-    if (!enemy.boss && behind && offscreen) {
+    // Recycle off the trailing edge while moving. Idle must keep the full
+    // ring — otherwise rear-half spawns get yanked back to last facing.
+    if (player.moving && !enemy.boss && behind && offscreen) {
       const spot = findSpawnSpot(
         enemyTypes[enemy.type],
         playerCenterX,
@@ -314,14 +314,16 @@ export function spawnBurst(count: number): void {
   }
 }
 
-/** Off-screen ring spot in the front half of the player's heading. */
+/** Off-screen ring: front half of heading while moving, full circle when idle. */
 function findSpawnSpot(
   type: EnemyType,
   playerCenterX: number,
   playerCenterY: number,
   radius: number
 ): { x: number; y: number } {
-  const angle = Math.atan2(player.faceY, player.faceX) + (Math.random() - 0.5) * Math.PI;
+  const angle = player.moving
+    ? Math.atan2(player.faceY, player.faceX) + (Math.random() - 0.5) * Math.PI
+    : Math.random() * Math.PI * 2;
   const hitLeft = playerCenterX + Math.cos(angle) * radius - type.hitW / 2;
   const hitTop = playerCenterY + Math.sin(angle) * radius - type.hitH / 2;
   return { x: hitLeft - type.hitX, y: hitTop - type.hitY };
