@@ -13,19 +13,13 @@ export let stickY = 0;
 
 const STICK_R = 28;
 const KNOB_R = 10;
-const STICK_PAD = 14;
 const DEAD = 0.15;
 
-let viewW = 1;
-let viewH = 1;
-let touchSeen = false;
-let stickId = -1;
+let stickDown = false;
+let stickId = 0;
 let stickEnabled = false;
-
-export function setViewSize(width: number, height: number): void {
-  viewW = width;
-  viewH = height;
-}
+let originX = 0;
+let originY = 0;
 
 /** Capture analog move only during a live run (not title / menus). */
 export function setStickEnabled(on: boolean): void {
@@ -35,10 +29,6 @@ export function setStickEnabled(on: boolean): void {
   }
 }
 
-function stickCenter(): { x: number; y: number } {
-  return { x: viewW / 2, y: viewH - STICK_PAD - STICK_R };
-}
-
 function clientToView(canvas: HTMLCanvasElement, clientX: number, clientY: number): void {
   const rect = canvas.getBoundingClientRect();
   mouse.x = ((clientX - rect.left) / rect.width) * canvas.width;
@@ -46,9 +36,8 @@ function clientToView(canvas: HTMLCanvasElement, clientX: number, clientY: numbe
 }
 
 function setStickFrom(x: number, y: number): void {
-  const c = stickCenter();
-  let dx = x - c.x;
-  let dy = y - c.y;
+  let dx = x - originX;
+  let dy = y - originY;
   const dist = Math.hypot(dx, dy);
   if (dist > STICK_R && dist > 0.01) {
     dx = (dx / dist) * STICK_R;
@@ -67,7 +56,7 @@ function setStickFrom(x: number, y: number): void {
 }
 
 function resetStick(): void {
-  stickId = -1;
+  stickDown = false;
   stickX = 0;
   stickY = 0;
 }
@@ -101,13 +90,16 @@ export function initInput(canvas: HTMLCanvasElement): void {
     'touchstart',
     (event) => {
       event.preventDefault();
-      touchSeen = true;
       const t = event.changedTouches[0];
       clientToView(canvas, t.clientX, t.clientY);
       mouse.clicked = true;
-      if (stickEnabled && stickId < 0) {
+      if (stickEnabled && !stickDown) {
+        stickDown = true;
         stickId = t.identifier;
-        setStickFrom(mouse.x, mouse.y);
+        originX = mouse.x;
+        originY = mouse.y;
+        stickX = 0;
+        stickY = 0;
       }
     },
     { passive: false }
@@ -118,7 +110,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
       event.preventDefault();
       for (let i = 0; i < event.changedTouches.length; i++) {
         const t = event.changedTouches[i];
-        if (t.identifier === stickId) {
+        if (stickDown && t.identifier === stickId) {
           clientToView(canvas, t.clientX, t.clientY);
           setStickFrom(mouse.x, mouse.y);
         }
@@ -129,7 +121,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
   const endTouch = (event: TouchEvent): void => {
     event.preventDefault();
     for (let i = 0; i < event.changedTouches.length; i++) {
-      if (event.changedTouches[i].identifier === stickId) {
+      if (stickDown && event.changedTouches[i].identifier === stickId) {
         resetStick();
       }
     }
@@ -152,24 +144,27 @@ export function anyKeyPressed(): boolean {
   return pressedKeys.size > 0;
 }
 
-/** Draw the virtual stick; hidden until the first touch, in-run only. */
+/** Draw the virtual stick only while a finger is down. */
 export function drawStick(ctx: CanvasRenderingContext2D, inRun: boolean): void {
-  if (!inRun || !touchSeen) {
+  if (!inRun || !stickDown) {
     return;
   }
-  const c = stickCenter();
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.arc(c.x, c.y, STICK_R, 0, Math.PI * 2);
+  ctx.arc(originX, originY, STICK_R, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.beginPath();
-  ctx.arc(c.x + 0.5, c.y + 0.5, STICK_R - 0.5, 0, Math.PI * 2);
+  ctx.arc(originX + 0.5, originY + 0.5, STICK_R - 0.5, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.beginPath();
-  ctx.arc(c.x + stickX * STICK_R, c.y + stickY * STICK_R, KNOB_R, 0, Math.PI * 2);
+  ctx.arc(originX + stickX * STICK_R, originY + stickY * STICK_R, KNOB_R, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 }
 
 /** Call once at the end of every frame. */

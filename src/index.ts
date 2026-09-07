@@ -11,7 +11,7 @@ import { bakeEnemyTypes, drawEnemies, updateEnemies } from './enemies';
 import { bakeFlowers, drawFlowers } from './flowers';
 import { drawExplosions, drawHudShower, updateExplosions } from './fx';
 import { bakeHud, drawHud } from './hud';
-import { clearPressedKeys, drawStick, initInput, setStickEnabled, setViewSize } from './input';
+import { clearPressedKeys, drawStick, initInput, setStickEnabled } from './input';
 import { bakeTiles, drawVeins, getTile, tileCanvases } from './map';
 import {
   drawOverlays,
@@ -47,7 +47,6 @@ function resize(): void {
   canvas.style.width = viewWidth * scale + 'px';
   canvas.style.height = viewHeight * scale + 'px';
   ctx.imageSmoothingEnabled = false;
-  setViewSize(viewWidth, viewHeight);
 }
 
 // [idle, left leg-cut, right leg-cut] — the cut frames alternate while moving
