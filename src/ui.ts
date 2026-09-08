@@ -97,13 +97,6 @@ function wrap(text: string, maxW: number): string[] {
   return lines;
 }
 
-/** Hide list buttons but keep the heading (title Start drain). */
-export function hideMenuButtons(): void {
-  labels = [];
-  bodies = [];
-  rects.length = 0;
-}
-
 export function rebakeRainbowTitle(): void {
   heading = bakeRainbowTitle('DYE HARD', 3);
 }
@@ -160,6 +153,18 @@ function pointIn(x: number, y: number, r: Rect): boolean {
   return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
 
+function storyBlockH(viewWidth: number): number {
+  if (!storyText) {
+    return 0;
+  }
+  const maxW = Math.max(40, viewWidth - 16);
+  if (storyBakeW !== maxW) {
+    storyBakeW = maxW;
+    storyLines = wrap(storyText, maxW).map((line) => bakeText(line));
+  }
+  return storyLines.length * (FONT_H + 2) - 2 + 6;
+}
+
 function layoutUi(viewWidth: number, viewHeight: number): void {
   rects.length = 0;
   headingX = 0;
@@ -167,20 +172,15 @@ function layoutUi(viewWidth: number, viewHeight: number): void {
   subX = 0;
   subY = 0;
   const n = labels.length;
+  const playerY = (viewHeight - PLAYER_HEIGHT) >> 1;
+  const storyH = headingTop ? storyBlockH(viewWidth) : 0;
+  if (storyH) {
+    storyY = playerY + PLAYER_HEIGHT + 8;
+  }
   if (n === 0) {
     if (heading) {
       headingX = (viewWidth - heading.width) >> 1;
-      headingY = headingTop
-        ? ((viewHeight - PLAYER_HEIGHT) >> 1) - 8 - heading.height
-        : (viewHeight - heading.height) >> 1;
-    }
-    if (storyText && headingTop) {
-      const maxW = Math.max(40, viewWidth - 16);
-      if (storyBakeW !== maxW) {
-        storyBakeW = maxW;
-        storyLines = wrap(storyText, maxW).map((line) => bakeText(line));
-      }
-      storyY = ((viewHeight - PLAYER_HEIGHT) >> 1) + PLAYER_HEIGHT + 8;
+      headingY = headingTop ? playerY - 8 - heading.height : (viewHeight - heading.height) >> 1;
     }
     return;
   }
@@ -201,22 +201,21 @@ function layoutUi(viewWidth: number, viewHeight: number): void {
     const x = (viewWidth - boxW) >> 1;
     const subH = subheading ? subheading.height + 4 : 0;
     let y: number;
-    if (heading) {
-      headingX = (viewWidth - heading.width) >> 1;
-      if (headingTop) {
-        // Unicorn is camera-centered.
-        const playerY = (viewHeight - PLAYER_HEIGHT) >> 1;
+    if (headingTop) {
+      if (heading) {
+        headingX = (viewWidth - heading.width) >> 1;
         headingY = playerY - 8 - heading.height;
-        y = playerY + PLAYER_HEIGHT + 8;
-      } else {
-        const total = heading.height + 8 + subH + blockH;
-        headingY = (viewHeight - total) >> 1;
-        if (subheading) {
-          subX = (viewWidth - subheading.width) >> 1;
-          subY = headingY + heading.height + 4;
-        }
-        y = headingY + heading.height + 8 + subH;
       }
+      y = (storyH ? storyY + storyH : playerY + PLAYER_HEIGHT) + 8;
+    } else if (heading) {
+      const total = heading.height + 8 + subH + blockH;
+      headingX = (viewWidth - heading.width) >> 1;
+      headingY = (viewHeight - total) >> 1;
+      if (subheading) {
+        subX = (viewWidth - subheading.width) >> 1;
+        subY = headingY + heading.height + 4;
+      }
+      y = headingY + heading.height + 8 + subH;
     } else {
       y = (viewHeight - blockH) >> 1;
     }

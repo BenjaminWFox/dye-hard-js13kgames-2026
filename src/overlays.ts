@@ -42,7 +42,6 @@ import {
 import {
   closeUi,
   drawUi,
-  hideMenuButtons,
   isUiOpen,
   openCards,
   openMenu,
@@ -60,7 +59,7 @@ export let scene = SCENE_TITLE;
 export let runTime = 0;
 
 const TITLE_LETTERS = 7;
-const TITLE_DRAIN_MS = 750;
+const TITLE_DRAIN_MS = 500;
 const TITLE_STORY =
   'CORPORATIONS ARE STEALING COLORS OF THE CRYSTAL DIMENSION!\n~\nFIND THEIR PORTALS AND DESTROY THEM!\n~\nWATCH OUT FOR THEIR ARMY OF OFFICE SUPPLIES!';
 
@@ -127,7 +126,7 @@ function openTitle(): void {
 }
 
 function startTitleDrain(): void {
-  hideMenuButtons();
+  openMenu('DYE HARD', ['CONTINUE'], () => beginRun(), 3, true);
   setTitleStory(TITLE_STORY);
   titleDraining = true;
   titleGrey = 0;
@@ -143,6 +142,7 @@ function lockNextTitleColor(): void {
 }
 
 function beginRun(): void {
+  titleDraining = false;
   closeUi();
   overlayQueue.length = 0;
   resetRun();
@@ -333,9 +333,8 @@ function tickIntro(dt: number, viewWidth: number, viewHeight: number): void {
     if (dist < 2) {
       if (!isReveal()) {
         intro = false;
-        openCards(null, [{ title: 'MY PROFITABLE COLORS!', body: 'I WILL DESTROY YOU!' }], () => {
-          closeUi();
-        });
+        setTitleStory('MY PROFITABLE COLORS!\nI WILL DESTROY YOU!');
+        openMenu(null, ['CONTINUE'], () => closeUi(), 1, true);
       }
       return;
     }
@@ -446,20 +445,10 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
     }
   }
   if (titleDraining) {
-    if (mouse.clicked || wasPressed('Enter') || wasPressed('NumpadEnter')) {
-      titleDraining = false;
-      mouse.clicked = false;
-      beginRun();
-    } else {
-      titleDrainT += dt;
-      while (titleDrainT >= TITLE_DRAIN_MS && titleGrey < TITLE_LETTERS) {
-        titleDrainT -= TITLE_DRAIN_MS;
-        lockNextTitleColor();
-      }
-      if (titleGrey >= TITLE_LETTERS && titleDrainT >= TITLE_DRAIN_MS) {
-        titleDraining = false;
-        beginRun();
-      }
+    titleDrainT += dt;
+    while (titleDrainT >= TITLE_DRAIN_MS && titleGrey < TITLE_LETTERS) {
+      titleDrainT -= TITLE_DRAIN_MS;
+      lockNextTitleColor();
     }
   }
 
