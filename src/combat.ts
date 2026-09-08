@@ -13,7 +13,7 @@ import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { damagePlayer, freezePlayer, getPlayerHitbox, player } from './player';
 import { damagePortal, hurtPortalsRing, portalLive, portals, PORTAL_H, PORTAL_W } from './portals';
 import { createSprite } from './sprites';
-import { pwr, SHOP_BOLTS, shopRanks, STAT_STR, STAT_WIS, totalStat } from './stats';
+import { pwr, SHOP_BOLTS, shopRanks, STAT_CON, STAT_STR, STAT_WIS, totalStat } from './stats';
 
 const HORN_MS = 250;
 const HORN_BEATS = 6;
@@ -277,6 +277,9 @@ function fireNova(owner: Enemy | null, bits: number): void {
   const amount = owner ? 1 : pwr(STAT_WIS);
   const c = owner ? enemyCenter(owner) : playerCenter();
   const caster = owner || player;
+  if (!owner) {
+    caster.hp = Math.min(caster.maxHp, caster.hp + totalStat(STAT_CON));
+  }
   if (bits & N_GREEN) {
     caster.hp = Math.min(caster.maxHp, caster.hp + HEAL_AMOUNT * amount);
   }

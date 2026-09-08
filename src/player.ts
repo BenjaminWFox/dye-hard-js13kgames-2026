@@ -8,11 +8,9 @@ import {
 import { spawnExplosion } from './fx';
 import { isDown, stickX, stickY } from './input';
 import {
-  CON_HP_PER_RANK,
   SHOP_REVIVE,
   SHOP_START_HP,
   START_HP_PER_RANK,
-  STAT_CON,
   STAT_DEX,
   shopRanks,
   speedMul,
@@ -93,8 +91,7 @@ export function resetPlayer(): void {
   player.faceX = 1;
   player.faceY = 0;
   player.walkTime = 0;
-  player.maxHp =
-    100 + CON_HP_PER_RANK * totalStat(STAT_CON) + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
+  player.maxHp = 100 + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
   player.hp = player.maxHp;
   player.frozen = 0;
   player.freezeGrace = 0;

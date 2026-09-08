@@ -449,47 +449,52 @@ export function drawEnemies(
   viewHeight: number
 ): void {
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  for (const enemy of enemies) {
-    const type = hitOf(enemy);
-    const canvas =
-      enemy.type > 7
-        ? finalBossSprites![enemy.frozen > 0 ? 0 : 1 + (((enemy.bobTime / WALK_FRAME_MS) | 0) % 2)]
-        : type.canvas;
-    const screenX = Math.floor(enemy.x - cameraX);
-    const screenY = Math.floor(enemy.y - cameraY);
-    const pad = enemy.boss ? canvas.width : 0;
-    if (
-      screenX + canvas.width + pad < 0 ||
-      screenY + canvas.height + pad < 0 ||
-      screenX - pad > viewWidth ||
-      screenY - pad > viewHeight
-    ) {
-      continue;
-    }
-    const down = enemy.type > 7 || enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
-    const scale = enemy.boss && enemy.type < 8 ? 2 : 1;
-    const dw = canvas.width * scale;
-    const dh = canvas.height * scale;
-    const drawX = screenX - ((dw - canvas.width) >> 1);
-    const drawY = screenY - (down ? 0 : 1) - ((dh - canvas.height) >> 1);
-    const shadowW = (down ? 5 : 3) * scale;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(
-      drawX + type.hitX * scale + ((type.hitW * scale - shadowW) >> 1),
-      drawY + type.hitY * scale + type.hitH * scale,
-      shadowW,
-      1
-    );
-    ctx.drawImage(canvas, drawX, drawY, dw, dh);
-    if (enemy.frozen > 0) {
-      ctx.strokeStyle = '#8df';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(
-        screenX + type.hitX + 0.5,
-        screenY + type.hitY - (down ? 0 : 1) + 0.5,
-        type.hitW - 1,
-        type.hitH - 1
+  for (let pass = 0; pass < 2; pass++) {
+    for (const enemy of enemies) {
+      if ((enemy.type > 7) !== !!pass) {
+        continue;
+      }
+      const type = hitOf(enemy);
+      const canvas =
+        enemy.type > 7
+          ? finalBossSprites![enemy.frozen > 0 ? 0 : 1 + (((enemy.bobTime / WALK_FRAME_MS) | 0) % 2)]
+          : type.canvas;
+      const screenX = Math.floor(enemy.x - cameraX);
+      const screenY = Math.floor(enemy.y - cameraY);
+      const pad = enemy.boss ? canvas.width : 0;
+      if (
+        screenX + canvas.width + pad < 0 ||
+        screenY + canvas.height + pad < 0 ||
+        screenX - pad > viewWidth ||
+        screenY - pad > viewHeight
+      ) {
+        continue;
+      }
+      const down = enemy.type > 7 || enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
+      const scale = enemy.boss && enemy.type < 8 ? 2 : 1;
+      const dw = canvas.width * scale;
+      const dh = canvas.height * scale;
+      const drawX = screenX - ((dw - canvas.width) >> 1);
+      const drawY = screenY - (down ? 0 : 1) - ((dh - canvas.height) >> 1);
+      const shadowW = (down ? 5 : 3) * scale;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(
+        drawX + type.hitX * scale + ((type.hitW * scale - shadowW) >> 1),
+        drawY + type.hitY * scale + type.hitH * scale,
+        shadowW,
+        1
       );
+      ctx.drawImage(canvas, drawX, drawY, dw, dh);
+      if (enemy.frozen > 0) {
+        ctx.strokeStyle = '#8df';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(
+          screenX + type.hitX + 0.5,
+          screenY + type.hitY - (down ? 0 : 1) + 0.5,
+          type.hitW - 1,
+          type.hitH - 1
+        );
+      }
     }
   }
 }

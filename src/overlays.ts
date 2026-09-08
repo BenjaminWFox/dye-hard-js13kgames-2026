@@ -34,7 +34,6 @@ import {
   SHOP_RANK_CAP,
   SHOP_REVIVE,
   SHOP_ROWS,
-  STAT_CON,
   shopLine,
   shopPrice,
   shopRanks,
@@ -252,10 +251,6 @@ function openLevelUp(): void {
   openCards('LEVEL UP', hand, (index) => {
     const card = hand[index];
     applyPick(card);
-    if (card.id === STAT_CON) {
-      player.maxHp += CON_HP_PER_RANK;
-      player.hp += CON_HP_PER_RANK;
-    }
     closeUi();
   });
 }

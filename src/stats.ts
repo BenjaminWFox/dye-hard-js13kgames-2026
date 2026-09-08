@@ -24,7 +24,7 @@ export const START_HP_PER_RANK = 20;
 export const START_SPD_PER_RANK = 0.2;
 
 const STAT_TITLE = ['STR', 'DEX', 'CON', 'WIS'];
-const STAT_BODY = ['+ HORN DMG', '- DMG TAKEN', '+ MAX HP', '+ NOVA PWR'];
+const STAT_BODY = ['+ HORN DMG', '- DMG TAKEN', '+ HP REGEN', '+ NOVA PWR'];
 export const COLOR_NAMES = ['RED', 'ORANGE', 'YELLOW', 'GREEN', 'BLUE', 'INDIGO', 'VIOLET'];
 export const POWER_TITLE = ['FIREBALL', 'FLAME', 'SPEED', 'HEAL', 'FROST', 'FROSTBALL', 'WARD'];
 export const POWER_UNLOCK_BODY = [
