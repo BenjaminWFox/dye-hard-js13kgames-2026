@@ -31,6 +31,7 @@ import {
   resetRunStats,
   SHOP_LVL_HP,
   SHOP_RANK_CAP,
+  SHOP_REVIVE,
   SHOP_ROWS,
   STAT_CON,
   shopLine,
@@ -60,7 +61,7 @@ export let runTime = 0;
 const TITLE_LETTERS = 7;
 const TITLE_DRAIN_MS = 750;
 const TITLE_STORY =
-  'CORPORATIONS IS STEALING COLORS OF THE CRYSTAL DIMENSION!\n~\nFIND THEIR PORTALS AND DESTROY THEM!';
+  'CORPORATIONS ARE STEALING COLORS OF THE CRYSTAL DIMENSION!\n~\nFIND THEIR PORTALS AND DESTROY THEM!\n~\nWATCH OUT FOR THEIR ARMY OF OFFICE SUPPLIES!';
 
 let pauseOpen = false;
 let hand: DraftCard[] = [];
@@ -153,9 +154,37 @@ function quitToTitle(): void {
   openTitle();
 }
 
+function endRunToShop(): void {
+  overlayQueue.length = 0;
+  saveGame();
+  resetRun();
+  openTitle();
+  openShop(true);
+}
+
 function openEnd(title: string): void {
   saveGame();
-  openMenu(title, ['CONTINUE'], () => openShop(false));
+  openMenu(title, ['END RUN'], () => endRunToShop());
+}
+
+function openDeath(): void {
+  playPowerup();
+  if (player.lives > 0) {
+    openMenu(
+      'YOU DIED',
+      ['REVIVE ' + player.lives + '/' + shopRanks[SHOP_REVIVE], 'END RUN'],
+      (index) => {
+        if (index === 0) {
+          tryRevive();
+          closeUi();
+          return;
+        }
+        endRunToShop();
+      }
+    );
+    return;
+  }
+  openEnd('YOU DIED');
 }
 
 function openShop(fromTitle: boolean, startSelected = 0): void {
@@ -410,9 +439,7 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
     player.hp <= 0 &&
     overlayQueue.length === 0
   ) {
-    if (!tryRevive()) {
-      openEnd('YOU DIED');
-    }
+    openDeath();
   }
   pumpOverlays();
 }

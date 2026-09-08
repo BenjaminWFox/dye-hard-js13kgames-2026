@@ -175,8 +175,9 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     }
     enemy.contactTimer = Math.max(0, enemy.contactTimer - dt);
 
-    const centerX = enemy.x + type.hitX + type.hitW / 2;
-    const centerY = enemy.y + type.hitY + type.hitH / 2;
+    const box = enemyHitbox(enemy);
+    const centerX = box.x + box.w / 2;
+    const centerY = box.y + box.h / 2;
     const towardX = playerCenterX - centerX;
     const towardY = playerCenterY - centerY;
     const dist = Math.hypot(towardX, towardY);
@@ -222,17 +223,17 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
       enemy.y += (towardY / dist) * step;
     }
 
-    // Contact damage at >10% of the enemy hitbox; max overlap is capped in separate().
-    const hitLeft = enemy.x + type.hitX;
-    const hitTop = enemy.y + type.hitY;
+    // Contact at >10% of the smaller hitbox. Elites are 2×; measuring against
+    // their full area made the 40% player-overlap cap in separate() unreachable.
+    const hit = enemyHitbox(enemy);
     const overlapW =
-      Math.min(hitLeft + type.hitW, playerHit.x + playerHit.w) - Math.max(hitLeft, playerHit.x);
+      Math.min(hit.x + hit.w, playerHit.x + playerHit.w) - Math.max(hit.x, playerHit.x);
     const overlapH =
-      Math.min(hitTop + type.hitH, playerHit.y + playerHit.h) - Math.max(hitTop, playerHit.y);
+      Math.min(hit.y + hit.h, playerHit.y + playerHit.h) - Math.max(hit.y, playerHit.y);
     if (
       overlapW > 0 &&
       overlapH > 0 &&
-      overlapW * overlapH > 0.1 * type.hitW * type.hitH &&
+      overlapW * overlapH > 0.1 * Math.min(hit.w * hit.h, playerHit.w * playerHit.h) &&
       enemy.contactTimer <= 0
     ) {
       damagePlayer(type.contactDamage);
@@ -341,19 +342,19 @@ function separate(): void {
   const hashed = Math.min(enemies.length, gridNext.length);
   for (let i = 0; i < hashed; i++) {
     const enemy = enemies[i];
-    const type = hitOf(enemy);
+    const box = enemyHitbox(enemy);
     const cell =
-      cellCoord(enemy.y + type.hitY + type.hitH / 2, originY, GRID_H) * GRID_W +
-      cellCoord(enemy.x + type.hitX + type.hitW / 2, originX, GRID_W);
+      cellCoord(box.y + box.h / 2, originY, GRID_H) * GRID_W +
+      cellCoord(box.x + box.w / 2, originX, GRID_W);
     gridNext[i] = gridHead[cell];
     gridHead[cell] = i;
   }
 
   for (let i = 0; i < hashed; i++) {
     const a = enemies[i];
-    const typeA = hitOf(a);
-    const ax = a.x + typeA.hitX + typeA.hitW / 2;
-    const ay = a.y + typeA.hitY + typeA.hitH / 2;
+    const boxA = enemyHitbox(a);
+    const ax = boxA.x + boxA.w / 2;
+    const ay = boxA.y + boxA.h / 2;
     const cellX = cellCoord(ax, originX, GRID_W);
     const cellY = cellCoord(ay, originY, GRID_H);
     for (let gy = Math.max(0, cellY - 1); gy <= Math.min(GRID_H - 1, cellY + 1); gy++) {
@@ -363,10 +364,10 @@ function separate(): void {
             continue;
           }
           const b = enemies[j];
-          const typeB = hitOf(b);
-          const minDist = typeA.radius + typeB.radius;
-          let dx = b.x + typeB.hitX + typeB.hitW / 2 - ax;
-          let dy = b.y + typeB.hitY + typeB.hitH / 2 - ay;
+          const boxB = enemyHitbox(b);
+          const minDist = Math.max(boxA.w, boxA.h) / 2 + Math.max(boxB.w, boxB.h) / 2;
+          let dx = boxB.x + boxB.w / 2 - ax;
+          let dy = boxB.y + boxB.h / 2 - ay;
           let dist = Math.hypot(dx, dy);
           if (dist >= minDist) {
             continue;
@@ -390,10 +391,15 @@ function separate(): void {
   const py = playerHit.y + playerHit.h / 2;
   const pRadius = playerHit.w / 2;
   for (const enemy of enemies) {
-    const type = hitOf(enemy);
-    const ex = enemy.x + type.hitX + type.hitW / 2;
-    const ey = enemy.y + type.hitY + type.hitH / 2;
-    const minDist = (type.radius + pRadius) * 0.6;
+    const box = enemyHitbox(enemy);
+    const ex = box.x + box.w / 2;
+    const ey = box.y + box.h / 2;
+    // Circle 40% cap, but never so far that a 2× (tall/thin) AABB cannot overlap.
+    const minDist = Math.min(
+      (Math.max(box.w, box.h) / 2 + pRadius) * 0.6,
+      ((box.w + playerHit.w) / 2) * 0.8,
+      ((box.h + playerHit.h) / 2) * 0.8
+    );
     let dx = ex - px;
     let dy = ey - py;
     let dist = Math.hypot(dx, dy);
@@ -461,10 +467,17 @@ export function drawEnemies(
   }
 }
 
-/** World-space content hitbox. */
+/** World-space content hitbox. Elites match their 2× draw (centered on the 7×9 cell). */
 export function enemyHitbox(enemy: Enemy): { x: number; y: number; w: number; h: number } {
   const type = hitOf(enemy);
-  return { x: enemy.x + type.hitX, y: enemy.y + type.hitY, w: type.hitW, h: type.hitH };
+  const s = enemy.boss ? 2 : 1;
+  const pad = (type.canvas.width * (s - 1)) >> 1;
+  return {
+    x: enemy.x + type.hitX * s - pad,
+    y: enemy.y + type.hitY * s - ((type.canvas.height * (s - 1)) >> 1),
+    w: type.hitW * s,
+    h: type.hitH * s,
+  };
 }
 
 export function crowdControl(enemy: Enemy, freezeMs: number): void {

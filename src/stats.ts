@@ -34,7 +34,7 @@ export const POWER_UNLOCK_BODY = [
   'HEAL PULSE',
   'AREA FREEZE',
   'RANGED FREEZE',
-  'EATS SHOTS',
+  'BLOCKS PROJECTILES',
 ];
 
 /** In-run ranks. Cap is 5. */
@@ -47,7 +47,7 @@ const SHOP_NAME = [
   '+ START SPD',
   '+ MAGNET',
   '+ REVIVE',
-  'LVL UP +20 HP',
+  '+ 20 HP / LVL UP',
   '+ KNOCKBACK DIST',
   '+ PROJECTILES',
 ];
