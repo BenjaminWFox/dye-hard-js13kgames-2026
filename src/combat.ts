@@ -175,7 +175,7 @@ function playerBits(): number {
       bits |= 2 << i;
     }
   }
-  // STUB: all 7 nova colors from run start. Delete this line to restore unlock gating.
+  // DEBUGSTUB: all 7 nova colors from run start. Delete this line to restore unlock gating.
   // return bits | 0xfe;
   return bits;
 }
@@ -210,12 +210,12 @@ export function updateCombat(
     novaCd += NOVA_PERIOD;
   }
   for (const enemy of enemies) {
-    if (!enemy.boss || enemy.color < 0) {
+    if (!enemy.boss) {
       continue;
     }
     enemy.cd -= dt;
     if (enemy.cd <= 0 && enemy.frozen <= 0) {
-      fireNova(enemy, 2 << enemy.color);
+      fireNova(enemy, enemy.type > 7 ? 254 : 2 << enemy.color);
       enemy.cd += NOVA_PERIOD;
     }
   }

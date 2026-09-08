@@ -94,6 +94,9 @@ export function resetPortals(): void {
       hp: PORTAL_HP,
     });
   }
+  // DEBUGSTUB: leave only the red (12 o'clock) portal. Delete these two lines.
+  // portalsGone = 126;
+  // portals[0].hp = PORTAL_HP * 7;
 }
 
 /** True if portal `i` is still a target. */

@@ -1,7 +1,8 @@
 // Director's Cut: pipes, plaza portal, and the opening cutscene live in
 // src/directors-cut/. Production portals are the 500px ROYGBIV ring.
 import { resetCombat } from './combat';
-import { enemies, enemyHitbox, resetEnemies, spawnPortalElite, unlockNextTier } from './enemies';
+import { PLAYER_HEIGHT, PLAYER_WIDTH } from './constants';
+import { enemies, enemyHitbox, resetEnemies, spawnPortalElite, takeSlainFinal, unlockNextTier } from './enemies';
 import {
   resetExplosions,
   spawnExplosion,
@@ -17,7 +18,7 @@ import { playPowerup } from './music';
 import { RAINBOW_COLORS, unlockedColors } from './palette';
 import { consumeLevelUp, pickups, resetPickups, scrap, spendScrap, updatePickups } from './pickups';
 import { player, resetPlayer, tryRevive } from './player';
-import { allPortalsGone, resetPortals, takeSlainPortal } from './portals';
+import { resetPortals, takeSlainPortal } from './portals';
 import { loadSave, saveGame } from './save';
 import { rebakeAllSprites } from './sprites';
 import {
@@ -86,6 +87,8 @@ const MASSACRE_END_MS = 400;
 
 let massacreT = 0;
 let massacring = false;
+/** Finale elite is running to the viewport corner. */
+let intro = false;
 
 export function enqueueOverlay(open: () => void): void {
   overlayQueue.push(open);
@@ -96,7 +99,7 @@ function isReveal(): boolean {
 }
 
 export function isWorldFrozen(): boolean {
-  return scene !== SCENE_RUN || isUiOpen() || titleDraining || isReveal() || massacring;
+  return scene !== SCENE_RUN || isUiOpen() || titleDraining || isReveal() || massacring || intro;
 }
 
 function openTitle(): void {
@@ -309,14 +312,45 @@ function resolveSlainPortals(viewWidth: number, viewHeight: number): void {
   unlockNextTier();
   spawnPortalElite(slain.x, slain.y);
   beginReveal(slain.color, viewWidth, viewHeight);
-  if (allPortalsGone()) {
-    enqueueOverlay(startMassacre);
+  if (enemies[enemies.length - 1].type > 7) {
+    intro = true;
   }
+}
+
+function tickIntro(dt: number, viewWidth: number, viewHeight: number): void {
+  if (!intro || isUiOpen()) {
+    return;
+  }
+  for (const enemy of enemies) {
+    if (enemy.type < 8) {
+      continue;
+    }
+    const tx = player.x + PLAYER_WIDTH / 2 - viewWidth / 2 + 40;
+    const ty = player.y + PLAYER_HEIGHT / 2 - viewHeight / 2 + 60;
+    const dx = tx - enemy.x;
+    const dy = ty - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 2) {
+      if (!isReveal()) {
+        intro = false;
+        openCards(null, [{ title: 'MY PROFITABLE COLORS!', body: 'I WILL DESTROY YOU!' }], () => {
+          closeUi();
+        });
+      }
+      return;
+    }
+    enemy.x += (dx / dist) * 0.1 * dt;
+    enemy.y += (dy / dist) * 0.1 * dt;
+    enemy.bobTime += dt;
+    return;
+  }
+  intro = false;
 }
 
 function startMassacre(): void {
   massacring = true;
   massacreT = 0;
+  resetCombat();
 }
 
 function tickMassacre(dt: number): void {
@@ -377,9 +411,14 @@ export function resetRun(): void {
   runTime = 0;
   revealColor = -1;
   massacring = false;
+  intro = false;
   resetRunStats();
   resetPlayer();
   resetEnemies();
+  // DEBUGSTUB: six portals already down. Delete this loop.
+  // for (let i = 0; i < 6; i++) {
+  //   unlockNextTier();
+  // }
   resetPickups();
   resetExplosions();
   resetCombat();
@@ -387,6 +426,10 @@ export function resetRun(): void {
   for (let i = 0; i < 7; i++) {
     unlockedColors[i] = false;
   }
+  // DEBUGSTUB: unlock the six missing colors. Delete this loop.
+  // for (let i = 1; i < 7; i++) {
+  //   unlockedColors[i] = true;
+  // }
   rebakeAllSprites();
   bakeTiles();
 }
@@ -396,7 +439,11 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
   if (scene === SCENE_RUN) {
     resolveSlainPortals(viewWidth, viewHeight);
     tickReveal(dt);
+    tickIntro(dt, viewWidth, viewHeight);
     tickMassacre(dt);
+    if (takeSlainFinal()) {
+      enqueueOverlay(startMassacre);
+    }
   }
   if (titleDraining) {
     if (mouse.clicked || wasPressed('Enter') || wasPressed('NumpadEnter')) {

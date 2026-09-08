@@ -1,10 +1,11 @@
+import { PLAYER_HEIGHT, PLAYER_WIDTH, WALK_FRAME_MS } from './constants';
 import { difficultyFor } from './difficulty';
 import { spawnDamageNumber, spawnExplosion } from './fx';
 import { playHit } from './music';
 import { RAINBOW_COLORS } from './palette';
 import { dropEliteLoot, dropLoot } from './pickups';
 import { damagePlayer, getPlayerHitbox, player } from './player';
-import { createSprite, measureContentBox } from './sprites';
+import { createSprite, createWalkSprites, measureContentBox } from './sprites';
 import { SHOP_KNOCK, shopRanks } from './stats';
 
 /**
@@ -82,8 +83,8 @@ export const enemies: Enemy[] = [];
 // Tiers allowed to spawn. Starts at paperclips; each portal unlocks the next.
 let unlockedTiers = 1;
 
-/** Director's Cut cutscene still reads this; not drawn in production. */
 export let finalBossSprites: HTMLCanvasElement[] | undefined;
+let slainFinal = false;
 
 function hitOf(enemy: Enemy): EnemyType {
   return enemyTypes[enemy.type];
@@ -107,6 +108,18 @@ export function bakeEnemyTypes(): void {
       hp: 8 + tier * 8,
     });
   }
+  finalBossSprites = createWalkSprites(40, 0, PLAYER_WIDTH, PLAYER_HEIGHT);
+  const box = measureContentBox(40, 0, PLAYER_WIDTH, PLAYER_HEIGHT);
+  enemyTypes.push({
+    canvas: finalBossSprites[0],
+    hitX: box.x,
+    hitY: box.y,
+    hitW: box.w,
+    hitH: box.h,
+    radius: Math.max(box.w, box.h) / 2,
+    contactDamage: 27,
+    hp: 200,
+  });
 }
 
 let spawnTimer = 0;
@@ -119,6 +132,7 @@ export function resetEnemies(): void {
   unlockedTiers = 1;
   regulars = 0;
   swarmElites = 0;
+  slainFinal = false;
 }
 
 function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Enemy {
@@ -281,7 +295,7 @@ function spawnAt(
 function pushElite(x: number, y: number, tier: number, color: number, fromPortal: boolean): void {
   const type = enemyTypes[tier];
   // 5× after the first portal, +1× per portal after that (11× at 7).
-  const hp = type.hp * (3 + unlockedTiers);
+  const hp = type.hp * (tier > 7 ? 1 : 3 + unlockedTiers);
   enemies.push(
     makeEnemy(x, y, hp, {
       type: tier,
@@ -298,11 +312,21 @@ function pushElite(x: number, y: number, tier: number, color: number, fromPortal
   }
 }
 
-/** Portal death: elite of the newly unlocked tier, at the portal. */
+/** Portal death: elite of the newly unlocked tier, at the portal. Last portal → finale. */
 export function spawnPortalElite(x: number, y: number): void {
-  const tier = Math.min(7, unlockedTiers - 1);
+  const tier = unlockedTiers > 7 ? 8 : unlockedTiers - 1;
   const type = enemyTypes[tier];
-  pushElite(x - type.hitX - type.hitW / 2, y - type.hitY - type.hitH / 2, tier, (Math.random() * 7) | 0, true);
+  pushElite(
+    x - type.hitX - type.hitW / 2,
+    y - type.hitY - type.hitH / 2,
+    tier,
+    (Math.random() * 7) | 0,
+    true
+  );
+}
+
+export function takeSlainFinal(): boolean {
+  return slainFinal && !(slainFinal = false);
 }
 
 /** Off-screen ring: front half of heading while moving, full circle when idle. */
@@ -427,7 +451,10 @@ export function drawEnemies(
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   for (const enemy of enemies) {
     const type = hitOf(enemy);
-    const canvas = enemyTypes[enemy.type].canvas;
+    const canvas =
+      enemy.type > 7
+        ? finalBossSprites![enemy.frozen > 0 ? 0 : 1 + (((enemy.bobTime / WALK_FRAME_MS) | 0) % 2)]
+        : type.canvas;
     const screenX = Math.floor(enemy.x - cameraX);
     const screenY = Math.floor(enemy.y - cameraY);
     const pad = enemy.boss ? canvas.width : 0;
@@ -439,8 +466,8 @@ export function drawEnemies(
     ) {
       continue;
     }
-    const down = enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
-    const scale = enemy.boss ? 2 : 1;
+    const down = enemy.type > 7 || enemy.frozen > 0 || enemy.bobTime % BOB_PERIOD_MS < BOB_PERIOD_MS / 2;
+    const scale = enemy.boss && enemy.type < 8 ? 2 : 1;
     const dw = canvas.width * scale;
     const dh = canvas.height * scale;
     const drawX = screenX - ((dw - canvas.width) >> 1);
@@ -470,7 +497,7 @@ export function drawEnemies(
 /** World-space content hitbox. Elites match their 2× draw (centered on the 7×9 cell). */
 export function enemyHitbox(enemy: Enemy): { x: number; y: number; w: number; h: number } {
   const type = hitOf(enemy);
-  const s = enemy.boss ? 2 : 1;
+  const s = enemy.boss && enemy.type < 8 ? 2 : 1;
   const pad = (type.canvas.width * (s - 1)) >> 1;
   return {
     x: enemy.x + type.hitX * s - pad,
@@ -513,6 +540,9 @@ export function hurtEnemyAt(index: number, amount: number): boolean {
     return false;
   }
   spawnExplosion(cx, cy, enemy.boss && enemy.color >= 0 ? RAINBOW_COLORS[enemy.color] : 0xb1b1b1, 24);
+  if (enemy.type > 7) {
+    slainFinal = true;
+  }
   if (enemy.boss) {
     dropEliteLoot(cx, cy);
     if (!enemy.chasing) {
