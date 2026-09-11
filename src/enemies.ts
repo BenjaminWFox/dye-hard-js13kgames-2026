@@ -223,7 +223,8 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     }
 
     if (dist > 1 && enemy.frozen <= 0) {
-      const step = ENEMY_SPEED * (enemy.slowed > 0 ? 0.5 : 1) * (enemy.boost > 0 ? 1.15 : 1) * dt;
+      const step =
+        ENEMY_SPEED * (1 + player.h / 10) * (enemy.slowed > 0 ? 0.5 : 1) * (enemy.boost > 0 ? 1.15 : 1) * dt;
       enemy.x += (towardX / dist) * step;
       enemy.y += (towardY / dist) * step;
     }
