@@ -1,5 +1,4 @@
 import { PLAYER_HEIGHT, PLAYER_WIDTH, WALK_FRAME_MS } from './constants';
-import { difficultyFor } from './difficulty';
 import { spawnDamageNumber, spawnExplosion } from './fx';
 import { playHit } from './music';
 import { RAINBOW_COLORS } from './palette';
@@ -104,7 +103,7 @@ export function bakeEnemyTypes(): void {
       hitW: box.w,
       hitH: box.h,
       radius: Math.max(box.w, box.h) / 2,
-      contactDamage: (tier + 1) * 3,
+      contactDamage: tier + 1,
       hp: 8 + tier * 8,
     });
   }
@@ -117,7 +116,7 @@ export function bakeEnemyTypes(): void {
     hitW: box.w,
     hitH: box.h,
     radius: Math.max(box.w, box.h) / 2,
-    contactDamage: 27,
+    contactDamage: 9,
     hp: 200,
   });
 }
@@ -136,6 +135,7 @@ export function resetEnemies(): void {
 }
 
 function makeEnemy(x: number, y: number, hp: number, extra: Partial<Enemy>): Enemy {
+  hp *= 1 + player.h / 2;
   return {
     x,
     y,
@@ -163,7 +163,7 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
   const playerCenterX = playerHit.x + playerHit.w / 2;
   const playerCenterY = playerHit.y + playerHit.h / 2;
 
-  const spawnInterval = SPAWN_INTERVAL_MS / difficultyFor(viewWidth, viewHeight).spawnRate;
+  const spawnInterval = SPAWN_INTERVAL_MS * (viewHeight > viewWidth ? 2 : 1);
   spawnTimer += dt;
   while (spawnTimer >= spawnInterval) {
     spawnTimer -= spawnInterval;
@@ -181,12 +181,8 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     } else {
       enemy.bobTime += dt;
     }
-    if (enemy.slowed > 0) {
-      enemy.slowed = Math.max(0, enemy.slowed - dt);
-    }
-    if (enemy.boost > 0) {
-      enemy.boost = Math.max(0, enemy.boost - dt);
-    }
+    enemy.slowed = Math.max(0, enemy.slowed - dt);
+    enemy.boost = Math.max(0, enemy.boost - dt);
     enemy.contactTimer = Math.max(0, enemy.contactTimer - dt);
 
     const box = enemyHitbox(enemy);
@@ -203,12 +199,7 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
     // Recycle off the trailing edge while moving. Idle must keep the full
     // ring — otherwise rear-half spawns get yanked back to last facing.
     if (player.moving && !enemy.boss && behind && offscreen) {
-      const spot = findSpawnSpot(
-        enemyTypes[enemy.type],
-        playerCenterX,
-        playerCenterY,
-        spawnRadius
-      );
+      const spot = findSpawnSpot(type, playerCenterX, playerCenterY, spawnRadius);
       enemy.x = spot.x;
       enemy.y = spot.y;
       enemy.contactTimer = 0;
@@ -250,7 +241,7 @@ export function updateEnemies(dt: number, viewWidth: number, viewHeight: number)
       overlapW * overlapH > 0.1 * Math.min(hit.w * hit.h, playerHit.w * playerHit.h) &&
       enemy.contactTimer <= 0
     ) {
-      damagePlayer(type.contactDamage);
+      damagePlayer(type.contactDamage * (3 + 2 * player.h));
       enemy.contactTimer = CONTACT_TICK_MS;
     }
   }
@@ -301,7 +292,6 @@ function pushElite(x: number, y: number, tier: number, color: number, fromPortal
       type: tier,
       boss: true,
       color,
-      maxHp: hp,
       chasing: fromPortal,
       cd: 400 + Math.random() * 800,
       bobTime: Math.random() * BOB_PERIOD_MS,
@@ -448,7 +438,6 @@ export function drawEnemies(
   viewWidth: number,
   viewHeight: number
 ): void {
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   for (let pass = 0; pass < 2; pass++) {
     for (const enemy of enemies) {
       if ((enemy.type > 7) !== !!pass) {

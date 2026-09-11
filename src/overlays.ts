@@ -14,8 +14,8 @@ import {
 import { colorSquareCenter, formatScrap, pauseIconContains } from './hud';
 import { mouse, wasPressed } from './input';
 import { bakeTiles } from './map';
-import { playPowerup } from './music';
-import { RAINBOW_COLORS, unlockedColors } from './palette';
+import { playPowerup, soundLabel, toggleSound } from './music';
+import { hex, RAINBOW_COLORS, unlockedColors } from './palette';
 import { consumeLevelUp, pickups, resetPickups, scrap, spendScrap, updatePickups } from './pickups';
 import { player, resetPlayer, tryRevive } from './player';
 import { resetPortals, takeSlainPortal } from './portals';
@@ -49,10 +49,9 @@ import {
   updateUi,
 } from './ui';
 
-export const SCENE_TITLE = 0;
 export const SCENE_RUN = 1;
 
-export let scene = SCENE_TITLE;
+export let scene = 0;
 
 /** Elapsed run time (ms). Pauses with overlays. */
 export let runTime = 0;
@@ -67,10 +66,6 @@ let hand: DraftCard[] = [];
 let titleDraining = false;
 let titleGrey = 0;
 let titleDrainT = 0;
-
-/** Director's Cut cutscene still reads these. Unused this pass. */
-export const WAVE_SPEED = 0.38;
-export const colorWave = { active: false, x: 0, y: 0, r: 0 };
 
 const overlayQueue: (() => void)[] = [];
 /** Color waiting on the post-kill shade + shower beat; -1 = none. */
@@ -88,10 +83,6 @@ let massacring = false;
 /** Finale elite is running to the viewport corner. */
 let intro = false;
 
-export function enqueueOverlay(open: () => void): void {
-  overlayQueue.push(open);
-}
-
 function isReveal(): boolean {
   return revealColor >= 0;
 }
@@ -103,29 +94,37 @@ export function isWorldFrozen(): boolean {
 function openTitle(): void {
   pauseOpen = false;
   titleDraining = false;
-  scene = SCENE_TITLE;
+  scene = 0;
   for (let i = 0; i < 7; i++) {
     unlockedColors[i] = true;
   }
   bakeTiles();
   rebakeAllSprites();
+  showTitleMenu();
+}
+
+function showTitleMenu(startSelected = 0): void {
   openMenu(
     'DYE HARD',
-    ['START', 'UPGRADES'],
+    ['START', 'UPGRADES', 'DIFFICULTY: ' + (player.h ? 'INTENSE' : 'CASUAL'), soundLabel()],
     (index) => {
-      if (index === 0) {
+      if (!index) {
         startTitleDrain();
-      } else {
+      } else if (index === 1) {
         openShop(true);
+      } else {
+        index === 2 ? (player.h ^= 1) : toggleSound();
+        showTitleMenu(index);
       }
     },
     3,
-    true
+    true,
+    startSelected
   );
 }
 
 function startTitleDrain(): void {
-  openMenu('DYE HARD', ['CONTINUE'], () => beginRun(), 3, true);
+  openMenu('DYE HARD', ['CONTINUE'], beginRun, 3, true);
   setTitleStory(TITLE_STORY);
   titleDraining = true;
   titleGrey = 0;
@@ -166,7 +165,7 @@ function endRunToShop(): void {
 
 function openEnd(title: string): void {
   saveGame();
-  openMenu(title, ['END RUN'], () => endRunToShop());
+  openMenu(title, ['END RUN'], endRunToShop);
 }
 
 function openDeath(): void {
@@ -217,20 +216,32 @@ function openShop(fromTitle: boolean, startSelected = 0): void {
     },
     1,
     false,
-    'SCRAP ' + formatScrap(scrap),
-    startSelected
+    startSelected,
+    'SCRAP ' + formatScrap(scrap)
   );
 }
 
-function openPause(): void {
+function openPause(startSelected = 0): void {
   pauseOpen = true;
-  openMenu('PAUSED', ['RESUME', 'QUIT TO MENU'], (index) => {
-    closeUi();
-    pauseOpen = false;
-    if (index === 1) {
-      quitToTitle();
-    }
-  });
+  openMenu(
+    'PAUSED',
+    ['RESUME', 'QUIT TO MENU', soundLabel()],
+    (index) => {
+      if (index === 2) {
+        toggleSound();
+        openPause(index);
+        return;
+      }
+      closeUi();
+      pauseOpen = false;
+      if (index === 1) {
+        quitToTitle();
+      }
+    },
+    1,
+    false,
+    startSelected
+  );
 }
 
 function closePause(): void {
@@ -259,14 +270,11 @@ function openUnlock(color: number): void {
   unlockedColors[color] = true;
   rebakeAllSprites();
   bakeTiles();
-  const hex = '#' + RAINBOW_COLORS[color].toString(16).padStart(6, '0');
   openCards(
     COLOR_NAMES[color],
     [{ title: POWER_TITLE[color], body: POWER_UNLOCK_BODY[color] }],
-    () => {
-      closeUi();
-    },
-    hex
+    closeUi,
+    hex(RAINBOW_COLORS[color])
   );
 }
 
@@ -276,7 +284,7 @@ function beginReveal(color: number, viewWidth: number, viewHeight: number): void
   revealW = viewWidth;
   revealH = viewHeight;
   nextBurst = 0;
-  const sq = colorSquareCenter(color, viewWidth);
+  const sq = colorSquareCenter(color);
   spawnHudShower(sq.x, sq.y, RAINBOW_COLORS[color]);
   playPowerup();
 }
@@ -329,7 +337,7 @@ function tickIntro(dt: number, viewWidth: number, viewHeight: number): void {
       if (!isReveal()) {
         intro = false;
         setTitleStory('MY PROFITABLE COLORS!\nI WILL DESTROY YOU!');
-        openMenu(null, ['CONTINUE'], () => closeUi(), 1, true);
+        openMenu(null, ['CONTINUE'], closeUi, 1, true);
       }
       return;
     }
@@ -436,7 +444,7 @@ export function updateOverlays(viewWidth: number, viewHeight: number, dt: number
     tickIntro(dt, viewWidth, viewHeight);
     tickMassacre(dt);
     if (takeSlainFinal()) {
-      enqueueOverlay(startMassacre);
+      overlayQueue.push(startMassacre);
     }
   }
   if (titleDraining) {

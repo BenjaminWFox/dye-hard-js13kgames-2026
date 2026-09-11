@@ -1,7 +1,7 @@
 import { PLAYER_SPAWN_X, PLAYER_SPAWN_Y } from './constants';
 import { spawnDamageNumber } from './fx';
 import { playHit } from './music';
-import { RAINBOW_COLORS } from './palette';
+import { hex, RAINBOW_COLORS } from './palette';
 import { createSprite } from './sprites';
 
 export const PORTAL_W = 12;
@@ -111,10 +111,6 @@ function portalMaxHp(): number {
     gone += g & 1;
   }
   return PORTAL_HP * (1 + gone);
-}
-
-export function allPortalsGone(): boolean {
-  return portalsGone === 127;
 }
 
 /** True if this hit killed the portal. */
@@ -239,7 +235,7 @@ export function drawPortalMarkers(
     ctx.lineTo(bx + px, by + py);
     ctx.lineTo(bx - px, by - py);
     ctx.closePath();
-    ctx.fillStyle = '#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0');
+    ctx.fillStyle = hex(RAINBOW_COLORS[i]);
     ctx.fill();
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;

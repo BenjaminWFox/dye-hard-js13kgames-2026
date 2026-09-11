@@ -2,6 +2,24 @@
 
 Limit: **13,312 B**. Zip is the scoreboard (`npm run build` → advzip).
 
+## 2026-09-10 — safe golf pass (single cluster)
+
+**Baseline: 13,335 B (100.17% — 23 B over). No gameplay / visual changes.**
+
+| Change | Note |
+|--------|------|
+| Shared `hex()` in palette; replaced 9 `'#'+n.toString(16).padStart(6,'0')` sites | fx ×2, hud, ui, combat ×2, portals, overlays, cssColor |
+| combat: merged owner/radial fire+frost bolt spawns into one tuple loop | behavior identical (fire freeze stays 0) |
+| combat: `ring()` helper for the 5 nova arc draws | |
+| `'#333333'`→`'#333'` (ui), `'#ffffff'`→`'#fff'` (map), `0x000000`→`0` (player) | |
+| Callback shorthands: `() => beginRun()` → `beginRun` etc. (overlays ×4) | |
+| Dropped unused params: `freezePlayer(_ms)`, `colorSquareCenter(_viewWidth)`, `speedMul` default, `spawnBolt` default | |
+| Removed guards around `Math.max(0, x - dt)` decrements (player ×3, enemies ×2) | same result at 0 |
+| Removed redundant `fillStyle` (drawEnemies) + `imageSmoothingEnabled` (drawHud; resize owns it) | |
+| Reused `type` for `enemyTypes[enemy.type]` in recycle branch; viewport meta `1.0`→`1` | |
+
+**Then: 13,278 B (99.74%). Saved 57 B. Headroom 34 B.**
+
 ## 2026-09-06 — safe golf pass
 
 **Baseline: 12,627 B (94.85% of 13 KB). Headroom 685 B.**

@@ -2,7 +2,7 @@ import { PLAYER_HEIGHT } from './constants';
 import { bakeText, drawText, FONT_GAP, FONT_H, FONT_W, measureText } from './font';
 import { mouse, wasPressed } from './input';
 import { playCrystal } from './music';
-import { currentColor, RAINBOW_COLORS } from './palette';
+import { currentColor, hex, RAINBOW_COLORS } from './palette';
 
 const LAYOUT_LIST = 0;
 const LAYOUT_CARDS = 1;
@@ -71,7 +71,7 @@ function bakeRainbowTitle(text: string, scale: number): HTMLCanvasElement {
     drawText(ctx, ch, ox + 1, 1, '#000', scale);
     drawText(ctx, ch, ox, 0, '#000', scale);
     drawText(ctx, ch, ox, 2, '#000', scale);
-    drawText(ctx, ch, ox, 1, '#' + fill.toString(16).padStart(6, '0'), scale);
+    drawText(ctx, ch, ox, 1, hex(fill), scale);
     colorIndex++;
   }
   return canvas;
@@ -113,8 +113,8 @@ export function openMenu(
   pick: (index: number) => void,
   titleScale = 1,
   titleAtTop = false,
-  subtitle?: string,
-  startSelected = 0
+  startSelected = 0,
+  subtitle?: string
 ): void {
   layout = LAYOUT_LIST;
   heading = title
@@ -138,13 +138,12 @@ export function openCards(
   titleColor = '#fff'
 ): void {
   layout = LAYOUT_CARDS;
-  const cardScale = 1;
-  heading = title ? bakeText(title, titleColor, cardScale) : null;
+  heading = title ? bakeText(title, titleColor) : null;
   headingPlate = titleColor !== '#fff';
   subheading = null;
   headingTop = false;
-  labels = items.map((item) => bakeText(item.title, '#fff', cardScale));
-  bodies = items.map((item) => bakeText(item.body, '#fff', cardScale));
+  labels = items.map((item) => bakeText(item.title));
+  bodies = items.map((item) => bakeText(item.body));
   selected = 0;
   onPick = pick;
 }
@@ -347,7 +346,7 @@ export function drawUi(ctx: CanvasRenderingContext2D, viewWidth: number, viewHei
 
   for (let i = 0; i < rects.length; i++) {
     const r = rects[i];
-    ctx.fillStyle = '#333333';
+    ctx.fillStyle = '#333';
     ctx.fillRect(r.x, r.y, r.w, r.h);
     ctx.fillStyle = '#000';
     ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);

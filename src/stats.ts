@@ -81,7 +81,7 @@ export function pwr(id: number): number {
 }
 
 /** Shop Start Speed is always-on; yellow nova burst stacks while `boost` > 0. */
-export function speedMul(boost = 0): number {
+export function speedMul(boost: number): number {
   return (
     1 +
     START_SPD_PER_RANK * shopRanks[SHOP_START_SPD] +

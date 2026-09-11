@@ -15,7 +15,7 @@
  * still the jittered-inset portal placer for that restore.
  */
 
-import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from '../constants';
+import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from './world';
 
 const WORLD_W = MAP_WIDTH * TILE_SIZE;
 const WORLD_H = MAP_HEIGHT * TILE_SIZE;

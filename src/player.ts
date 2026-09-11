@@ -38,6 +38,8 @@ export const player = {
   boost: 0,
   /** Extra lives remaining this run (from the shop Revive row). */
   lives: 0,
+  /** 0 = casual, 1 = intense. Title toggle; survives resetPlayer. */
+  h: 0,
   /** Remaining i-frames (ms). Incoming damage is ignored while > 0. */
   iframes: 0,
 };
@@ -56,12 +58,12 @@ export function damagePlayer(amount: number): void {
   const hit = getPlayerHitbox();
   const cx = hit.x + hit.w / 2;
   const cy = hit.y + hit.h / 2;
-  spawnExplosion(cx, cy, 0x000000, 5);
+  spawnExplosion(cx, cy, 0, 5);
   spawnExplosion(cx, cy, 0xffffff, 5);
   player.hp = Math.max(0, player.hp - amount);
 }
 
-export function freezePlayer(_ms: number): void {
+export function freezePlayer(): void {
   if (player.iframes > 0 || player.frozen > 0 || player.freezeGrace > 0) {
     return;
   }
@@ -91,7 +93,7 @@ export function resetPlayer(): void {
   player.faceX = 1;
   player.faceY = 0;
   player.walkTime = 0;
-  player.maxHp = 100 + START_HP_PER_RANK * shopRanks[SHOP_START_HP];
+  player.maxHp = 100 + START_HP_PER_RANK * (shopRanks[SHOP_START_HP] - player.h);
   player.hp = player.maxHp;
   player.frozen = 0;
   player.freezeGrace = 0;
@@ -101,15 +103,9 @@ export function resetPlayer(): void {
 }
 
 export function updatePlayer(dt: number): void {
-  if (player.iframes > 0) {
-    player.iframes = Math.max(0, player.iframes - dt);
-  }
-  if (player.boost > 0) {
-    player.boost = Math.max(0, player.boost - dt);
-  }
-  if (player.freezeGrace > 0) {
-    player.freezeGrace = Math.max(0, player.freezeGrace - dt);
-  }
+  player.iframes = Math.max(0, player.iframes - dt);
+  player.boost = Math.max(0, player.boost - dt);
+  player.freezeGrace = Math.max(0, player.freezeGrace - dt);
   if (player.frozen > 0) {
     player.frozen = Math.max(0, player.frozen - dt);
     if (player.frozen <= 0) {
@@ -145,9 +141,9 @@ export function updatePlayer(dt: number): void {
   player.faceX = dx;
   player.faceY = dy;
 
-  const speed = PLAYER_SPEED * speedMul(player.boost);
-  // Infinite white map has no solids (`getTileSolid` is always null). Tile-edge
-  // snap is in git history; restore it when walls return (Director's Cut).
+  const speed = (PLAYER_SPEED - player.h * 0.006) * speedMul(player.boost);
+  // Infinite white map has no solids. Tile-edge snap is in git history;
+  // restore it when walls return (Director's Cut).
   player.x += dx * speed * dt;
   player.y += dy * speed * dt;
 }

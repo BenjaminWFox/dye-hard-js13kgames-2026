@@ -1,6 +1,6 @@
 import { PLAYER_SPEED, PLAYER_WIDTH } from './constants';
 import { playCrystal } from './music';
-import { getPlayerHitbox } from './player';
+import { getPlayerHitbox, player } from './player';
 import { createSprite } from './sprites';
 import { SHOP_MAGNET, shopRanks } from './stats';
 
@@ -159,7 +159,7 @@ export function updatePickups(dt: number, vacuum = false): void {
         addXp(1, !vacuum);
         playCrystal();
       } else {
-        scrap += 1 + ((Math.random() * 4) | 0);
+        scrap += 1 + ((Math.random() * (4 - 3 * player.h)) | 0);
       }
       pickups.splice(i, 1);
     }

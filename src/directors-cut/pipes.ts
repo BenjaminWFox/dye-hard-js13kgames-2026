@@ -1,5 +1,20 @@
-import { MAP_HEIGHT, MAP_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH, TILE_SIZE } from '../constants';
-import { getTile, hubRadiusTiles, PORTAL_CELLS, TILE_WALL, TILE_WHITE } from '../map';
+import { PLAYER_HEIGHT, PLAYER_WIDTH } from '../constants';
+import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from './world';
+import { getTile, TILE_WALL, TILE_WHITE } from '../map';
+
+const PORTAL_CELLS: [number, number][] = [
+  [0, 0],
+  [5, 0],
+  [9, 0],
+  [0, 5],
+  [9, 5],
+  [0, 9],
+  [5, 9],
+];
+
+function hubRadiusTiles(ang: number): number {
+  return 9 * (1 + 0.14 * Math.sin(ang * 3) + 0.09 * Math.sin(ang * 5 + 0.8));
+}
 import { BLUE, GREEN, ORANGE, RAINBOW_COLORS, VIOLET } from '../palette';
 import { createSprite } from '../sprites';
 

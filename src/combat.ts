@@ -9,7 +9,7 @@ import {
   hurtEnemyAt,
 } from './enemies';
 import { playHorn, playNova } from './music';
-import { RAINBOW_COLORS, unlockedColors } from './palette';
+import { hex, RAINBOW_COLORS, unlockedColors } from './palette';
 import { damagePlayer, freezePlayer, getPlayerHitbox, player } from './player';
 import { damagePortal, hurtPortalsRing, portalLive, portals, PORTAL_H, PORTAL_W } from './portals';
 import { createSprite } from './sprites';
@@ -287,41 +287,17 @@ function fireNova(owner: Enemy | null, bits: number): void {
     caster.boost = SPEED_BURST_MS;
   }
   if (bits & (N_RED | N_INDIGO)) {
-    if (owner) {
-      const t = playerCenter();
-      if (bits & N_RED) {
-        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FIRE, FIREBALL_DAMAGE * amount, false);
-      }
-      if (bits & N_INDIGO) {
-        spawnBolt(c.x, c.y, t.x, t.y, BOLT_FROST, FROSTBALL_DAMAGE * amount, false, FREEZE_MS * amount);
-      }
-    } else {
-      for (let n = 5 + 5 * shopRanks[SHOP_BOLTS]; n--; ) {
-        if (bits & N_RED) {
-          const ang = Math.random() * Math.PI * 2;
-          spawnBolt(
-            c.x,
-            c.y,
-            c.x + Math.cos(ang),
-            c.y + Math.sin(ang),
-            BOLT_FIRE,
-            FIREBALL_DAMAGE * amount,
-            true
-          );
+    for (let n = owner ? 1 : 5 + 5 * shopRanks[SHOP_BOLTS]; n--; ) {
+      for (const [bit, kind, dmg, frz] of [
+        [N_RED, BOLT_FIRE, FIREBALL_DAMAGE, 0],
+        [N_INDIGO, BOLT_FROST, FROSTBALL_DAMAGE, FREEZE_MS],
+      ]) {
+        if (!(bits & bit)) {
+          continue;
         }
-        if (bits & N_INDIGO) {
-          const ang = Math.random() * Math.PI * 2;
-          spawnBolt(
-            c.x,
-            c.y,
-            c.x + Math.cos(ang),
-            c.y + Math.sin(ang),
-            BOLT_FROST,
-            FROSTBALL_DAMAGE * amount,
-            true,
-            FREEZE_MS * amount
-          );
-        }
+        const ang = Math.random() * Math.PI * 2;
+        const t = owner ? playerCenter() : { x: c.x + Math.cos(ang), y: c.y + Math.sin(ang) };
+        spawnBolt(c.x, c.y, t.x, t.y, kind, dmg * amount, !owner, frz * amount);
       }
     }
   }
@@ -344,7 +320,7 @@ function spawnBolt(
   kind: number,
   damage: number,
   friendly: boolean,
-  freezeMs = 0
+  freezeMs: number
 ): void {
   const dx = tx - x;
   const dy = ty - y;
@@ -397,8 +373,12 @@ function updateNovas(dt: number): void {
           continue;
         }
         const box = enemyHitbox(enemy);
-        const dist = Math.hypot(box.x + box.w / 2 - c.x, box.y + box.h / 2 - c.y);
-        if (dist > r) {
+        if (
+          Math.hypot(
+            Math.max(box.x, Math.min(c.x, box.x + box.w)) - c.x,
+            Math.max(box.y, Math.min(c.y, box.y + box.h)) - c.y
+          ) > r
+        ) {
           continue;
         }
         n.seen.push(enemy);
@@ -422,7 +402,7 @@ function updateNovas(dt: number): void {
       if (dist <= r) {
         n.hitP = true;
         if (freeze) {
-          freezePlayer(freeze);
+          freezePlayer();
         }
         if (dmg) {
           damagePlayer(dmg);
@@ -493,7 +473,7 @@ function updateBolts(dt: number): void {
         damagePlayer(p.damage);
       }
       if (p.freezeMs > 0) {
-        freezePlayer(p.freezeMs);
+        freezePlayer();
         crowdControlAt(p.x, p.y, FROSTBALL_RADIUS, p.freezeMs);
       }
       bolts.splice(i, 1);
@@ -508,30 +488,27 @@ export function drawNovas(ctx: CanvasRenderingContext2D, cameraX: number, camera
     const cols: string[] = [];
     for (let i = 0; i < 7; i++) {
       if (n.bits & (2 << i)) {
-        cols.push('#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0'));
+        cols.push(hex(RAINBOW_COLORS[i]));
       }
     }
     const cx = Math.floor(c.x - cameraX) + 0.5;
     const cy = Math.floor(c.y - cameraY) + 0.5;
+    const ring = (radius: number): void => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    };
     if (n.bits & N_WHITE && r >= 1) {
       ctx.strokeStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
-      ctx.stroke();
+      ring(r + 1);
       ctx.strokeStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
+      ring(r);
       if (r > 2) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r - 1, 0, Math.PI * 2);
-        ctx.stroke();
+        ring(r - 1);
       }
       if (r > 3) {
         ctx.strokeStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
-        ctx.stroke();
+        ring(r - 2);
       }
     }
     for (let i = 0; i < cols.length; i++) {
@@ -540,9 +517,7 @@ export function drawNovas(ctx: CanvasRenderingContext2D, cameraX: number, camera
         continue;
       }
       ctx.strokeStyle = cols[i];
-      ctx.beginPath();
-      ctx.arc(cx, cy, band, 0, Math.PI * 2);
-      ctx.stroke();
+      ring(band);
     }
   }
 }
@@ -569,8 +544,7 @@ export function drawCombat(ctx: CanvasRenderingContext2D, cameraX: number, camer
     const sy = Math.floor(p.y - cameraY) - hw;
     ctx.fillStyle = '#000';
     ctx.fillRect(sx, sy, BOLT_SIZE + 1, BOLT_SIZE + 1);
-    ctx.fillStyle =
-      '#' + RAINBOW_COLORS[p.kind === BOLT_FROST ? 5 : 0].toString(16).padStart(6, '0');
+    ctx.fillStyle = hex(RAINBOW_COLORS[p.kind === BOLT_FROST ? 5 : 0]);
     ctx.fillRect(sx + 1, sy + 1, BOLT_SIZE - 1, BOLT_SIZE - 1);
   }
 

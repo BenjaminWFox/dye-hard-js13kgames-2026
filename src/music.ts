@@ -22,10 +22,12 @@ const sfxPlayers = pack.map((entry) => {
 });
 
 let ctx: AudioContext | undefined;
+let gain: GainNode | undefined;
 const sfxBufs: (AudioBuffer | undefined)[] = [];
 let progress = 0;
 let pumping = false;
 let playing = false;
+let soundOn = true;
 
 function pump(): void {
   if (pumping) {
@@ -46,7 +48,7 @@ function pump(): void {
     const src = ctx.createBufferSource();
     src.buffer = player.createAudioBuffer(ctx);
     src.loop = true;
-    src.connect(ctx.destination);
+    src.connect(master());
     src.start();
   };
   step();
@@ -58,12 +60,35 @@ function audio(): AudioContext {
   return ctx;
 }
 
+function master(): GainNode {
+  if (!gain) {
+    gain = audio().createGain();
+    gain.gain.value = +soundOn;
+    gain.connect(audio().destination);
+  }
+  return gain;
+}
+
+export function soundLabel(): string {
+  return soundOn ? 'SOUND: ON' : 'SOUND: OFF';
+}
+
+export function toggleSound(): void {
+  soundOn = !soundOn;
+  if (gain) {
+    gain.gain.value = +soundOn;
+  }
+}
+
 function play(): void {
   audio();
   pump();
 }
 
 function playSfx(id: number): void {
+  if (!soundOn) {
+    return;
+  }
   const ac = audio();
   sfxBufs[id] ||= sfxPlayers[id].createAudioBuffer(ac);
   const src = ac.createBufferSource();

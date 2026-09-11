@@ -1,4 +1,5 @@
 import { drawText, measureText } from './font';
+import { hex } from './palette';
 
 interface Particle {
   x: number;
@@ -14,27 +15,19 @@ interface Particle {
   fall: boolean;
 }
 
-interface DamagePop {
-  x: number;
-  y: number;
-  life: number;
-  text: string;
-}
-
 const particles: Particle[] = [];
-const pops: DamagePop[] = [];
+const pops: { x: number; y: number; life: number; n: number }[] = [];
 
 const LIFE_MS = 480;
 const SPEED_MIN = 0.08;
 const SPEED_MAX = 0.32;
 const POP_MS = 600;
-const POP_RISE = 12;
 
 /**
  * Tintable burst-of-pixels. Used for enemy deaths and the player taking a hit.
  */
 export function spawnExplosion(x: number, y: number, color: number, count = 22, screen = false): void {
-  const css = '#' + color.toString(16).padStart(6, '0');
+  const css = hex(color);
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = SPEED_MIN + Math.random() * (SPEED_MAX - SPEED_MIN);
@@ -64,22 +57,15 @@ export function spawnScreenBurst(viewWidth: number, viewHeight: number, color: n
 }
 
 /** White-on-black floating damage, same look as the scrap HUD counter. */
-export function spawnDamageNumber(x: number, y: number, amount: number): void {
-  const n = Math.round(amount);
-  if (n <= 0) {
-    return;
+export function spawnDamageNumber(x: number, y: number, n: number): void {
+  if ((n = Math.round(n)) > 0) {
+    pops.push({ x: x + (Math.random() - 0.5) * 6, y, life: POP_MS, n });
   }
-  pops.push({
-    x: x + (Math.random() - 0.5) * 6,
-    y,
-    life: POP_MS,
-    text: String(n),
-  });
 }
 
 /** Screen-space pixels falling from a HUD color square. */
 export function spawnHudShower(x: number, y: number, color: number, count = 56): void {
-  const css = '#' + color.toString(16).padStart(6, '0');
+  const css = hex(color);
   for (let i = 0; i < count; i++) {
     particles.push({
       x: x + (Math.random() - 0.5) * 14,
@@ -96,16 +82,14 @@ export function spawnHudShower(x: number, y: number, color: number, count = 56):
 }
 
 export function resetExplosions(): void {
-  particles.length = 0;
-  pops.length = 0;
+  particles.length = pops.length = 0;
 }
 
 /** World particles + damage pops. Skip while the run is frozen. */
 export function updateExplosions(dt: number): void {
   tickParticles(dt, false);
-  for (let i = pops.length - 1; i >= 0; i--) {
-    pops[i].life -= dt;
-    if (pops[i].life <= 0) {
+  for (let i = pops.length; i--; ) {
+    if ((pops[i].life -= dt) <= 0) {
       pops.splice(i, 1);
     }
   }
@@ -156,16 +140,17 @@ export function drawExplosions(
   }
   for (const pop of pops) {
     const t = 1 - pop.life / POP_MS;
-    const { w, h } = measureText(pop.text);
+    const label = '' + pop.n;
+    const { w, h } = measureText(label);
     const sx = Math.floor(pop.x - cameraX - w / 2);
-    const sy = Math.floor(pop.y - cameraY - t * POP_RISE);
+    const sy = Math.floor(pop.y - cameraY - t * 12);
     if (sx + w < 0 || sy + h < 0 || sx > viewWidth || sy > viewHeight) {
       continue;
     }
     ctx.globalAlpha = 1 - t;
     ctx.fillStyle = '#000';
     ctx.fillRect(sx - 1, sy - 1, w + 2, h + 2);
-    drawText(ctx, pop.text, sx, sy);
+    drawText(ctx, label, sx, sy);
   }
   ctx.globalAlpha = 1;
 }

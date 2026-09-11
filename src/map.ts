@@ -1,17 +1,6 @@
 import { TILE_H, TILE_W } from './constants';
 import { cssColor, RAINBOW_COLORS, rainbowShade } from './palette';
 
-/** 10×10 map of portal cells — Director's Cut / unused this pass. */
-export const PORTAL_CELLS: [number, number][] = [
-  [0, 0],
-  [5, 0],
-  [9, 0],
-  [0, 5],
-  [9, 5],
-  [0, 9],
-  [5, 9],
-];
-
 /** Index of the white ground stamp. Slice tiles 0–6 / walls are Director's Cut. */
 export const TILE_WHITE = 7;
 export const TILE_WALL = 8;
@@ -27,8 +16,6 @@ export const VEIN_H = 12;
 const VEIN_ALPHA = 0.25;
 const VEIN_WIDTH = 1;
 const VEIN_GAP = 8;
-const VEIN_STEP_X = 1;
-const VEIN_STEP_Y = 1;
 const VEIN_STRIDE = VEIN_WIDTH + VEIN_GAP;
 const VEIN_PERIOD = VEIN_STRIDE * 7;
 
@@ -50,40 +37,7 @@ export function getTile(_tx: number, _ty: number): number {
   return TILE_WHITE;
 }
 
-/** Centered solid box for this tile, or null if walkable. */
-export function getTileSolid(
-  _tx: number,
-  _ty: number
-): { x: number; y: number; w: number; h: number } | null {
-  return null;
-}
-
-/** Lumpy plaza radius in tiles — Director's Cut / unused this pass. */
-export function hubRadiusTiles(ang: number): number {
-  return 9 * (1 + 0.14 * Math.sin(ang * 3) + 0.09 * Math.sin(ang * 5 + 0.8));
-}
-
-/** No-op: the live map is infinite white. Slice generation stays in git. */
-export function generateMap(): void {}
-
 export const tileCanvases: HTMLCanvasElement[] = [];
-/** Palette state from before the current color wave. */
-export const tileCanvasesPrev: HTMLCanvasElement[] = [];
-
-/** Copy the live tile bakes so a wave can draw old + new palettes. */
-export function snapshotTiles(): void {
-  for (let tile = 0; tile < tileCanvases.length; tile++) {
-    let canvas = tileCanvasesPrev[tile];
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.width = TILE_W;
-      canvas.height = TILE_H;
-      tileCanvasesPrev[tile] = canvas;
-    }
-    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-    ctx.drawImage(tileCanvases[tile], 0, 0);
-  }
-}
 
 export function bakeTiles(): void {
   let canvas = tileCanvases[TILE_WHITE];
@@ -97,7 +51,7 @@ export function bakeTiles(): void {
     canvas.getContext('2d') as CanvasRenderingContext2D,
     TILE_W,
     TILE_H,
-    '#ffffff',
+    '#fff',
     '#cecece'
   );
   for (let color = 0; color < 7; color++) {
@@ -121,7 +75,7 @@ export function bakeTiles(): void {
 
 function getVein(vx: number, vy: number): number {
   const d =
-    (((vx * VEIN_STEP_X + vy * VEIN_STEP_Y) % VEIN_PERIOD) + VEIN_PERIOD) % VEIN_PERIOD;
+    (((vx + vy) % VEIN_PERIOD) + VEIN_PERIOD) % VEIN_PERIOD;
   if (d % VEIN_STRIDE < VEIN_WIDTH) {
     return (d / VEIN_STRIDE) | 0;
   }

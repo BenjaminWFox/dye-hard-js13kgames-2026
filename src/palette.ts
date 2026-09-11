@@ -54,9 +54,14 @@ export function currentColor(rgb: number): number {
   return greyOf(rgb);
 }
 
+/** CSS hex string for a 24-bit rgb number. */
+export function hex(rgb: number): string {
+  return '#' + rgb.toString(16).padStart(6, '0');
+}
+
 /** CSS string for the current render color of an authored rgb value. */
 export function cssColor(rgb: number): string {
-  return '#' + currentColor(rgb).toString(16).padStart(6, '0');
+  return hex(currentColor(rgb));
 }
 
 /**

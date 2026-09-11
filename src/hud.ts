@@ -1,5 +1,5 @@
 import { bakeText } from './font';
-import { RAINBOW_COLORS, unlockedColors } from './palette';
+import { hex, RAINBOW_COLORS, unlockedColors } from './palette';
 import { level, scrap, scrapSprite, xp, xpNeeded } from './pickups';
 
 const SCALE = 2;
@@ -70,7 +70,7 @@ export function pauseIconContains(x: number, y: number, viewHeight: number): boo
 }
 
 /** Center of color square `index` (0–6), from the last drawHud. */
-export function colorSquareCenter(index: number, _viewWidth: number): { x: number; y: number } {
+export function colorSquareCenter(index: number): { x: number; y: number } {
   return sqCenters[index];
 }
 
@@ -131,9 +131,7 @@ export function drawHud(
     sqCenters[i].y = sqY + SQ / 2;
     ctx.fillStyle = '#000';
     ctx.fillRect(sqX, sqY, SQ, SQ);
-    ctx.fillStyle = unlockedColors[i]
-      ? '#' + RAINBOW_COLORS[i].toString(16).padStart(6, '0')
-      : '#747474';
+    ctx.fillStyle = unlockedColors[i] ? hex(RAINBOW_COLORS[i]) : '#747474';
     ctx.fillRect(sqX + SCALE, sqY + SCALE, SQ_INNER, SQ_INNER);
     sqX += SQ + SQ_GAP;
   }
@@ -146,7 +144,6 @@ export function drawHud(
   const scrapY = iconY + ((iconH - scrapLabel.height) >> 1);
   ctx.fillStyle = '#000';
   ctx.fillRect(scrapX - SCALE, scrapY - SCALE, scrapLabel.width + 2 * SCALE, scrapLabel.height + 2 * SCALE);
-  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(scrapSprite, iconX, iconY, iconW, iconH);
   ctx.drawImage(scrapLabel, scrapX, scrapY);
 }

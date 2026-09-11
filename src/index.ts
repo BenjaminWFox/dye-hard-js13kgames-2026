@@ -12,7 +12,7 @@ import { bakeFlowers, drawFlowers } from './flowers';
 import { drawExplosions, drawHudShower, updateExplosions } from './fx';
 import { bakeHud, drawHud } from './hud';
 import { clearPressedKeys, drawStick, initInput, setStickEnabled } from './input';
-import { bakeTiles, drawVeins, getTile, tileCanvases } from './map';
+import { bakeTiles, drawVeins, TILE_WHITE, tileCanvases } from './map';
 import {
   drawOverlays,
   initOverlays,
@@ -105,7 +105,7 @@ function render(): void {
   const firstTileY = Math.floor(cameraY / TILE_H);
   const lastTileX = Math.floor((cameraX + viewWidth) / TILE_W);
   const lastTileY = Math.floor((cameraY + viewHeight) / TILE_H);
-  drawTiles(tileCanvases, cameraX, cameraY, firstTileX, firstTileY, lastTileX, lastTileY);
+  drawTiles(cameraX, cameraY, firstTileX, firstTileY, lastTileX, lastTileY);
   drawVeins(ctx, cameraX, cameraY, viewWidth, viewHeight);
   drawFlowers(ctx, cameraX, cameraY, firstTileX, firstTileY, lastTileX, lastTileY);
 
@@ -145,7 +145,6 @@ function render(): void {
 }
 
 function drawTiles(
-  canvases: HTMLCanvasElement[],
   cameraX: number,
   cameraY: number,
   firstTileX: number,
@@ -153,13 +152,10 @@ function drawTiles(
   lastTileX: number,
   lastTileY: number
 ): void {
+  const tile = tileCanvases[TILE_WHITE];
   for (let ty = firstTileY; ty <= lastTileY; ty++) {
     for (let tx = firstTileX; tx <= lastTileX; tx++) {
-      ctx.drawImage(
-        canvases[getTile(tx, ty)],
-        Math.floor(tx * TILE_W - cameraX),
-        Math.floor(ty * TILE_H - cameraY)
-      );
+      ctx.drawImage(tile, Math.floor(tx * TILE_W - cameraX), Math.floor(ty * TILE_H - cameraY));
     }
   }
 }
